@@ -34,7 +34,7 @@ import stat
 # Importer les fonctions d'authentification
 from auth_system import AuthSystem
 
-database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92")
+database_url = os.getenv("DATABASE_URL", "postgresql://localhost:5432/keno_analyzer")
 
 # Import des modules d'analyse spécialisés
 try:
