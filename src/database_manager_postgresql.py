@@ -70,7 +70,7 @@ class PostgreSQLManager:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 
-                -- Table des méthodes avec statistiques
+                -- Table des statistiques de méthodes
                 CREATE TABLE IF NOT EXISTS method_stats (
                     id SERIAL PRIMARY KEY,
                     method VARCHAR(100) UNIQUE NOT NULL,
@@ -88,7 +88,7 @@ class PostgreSQLManager:
                     results JSONB NOT NULL,
                     execution_time_ms INTEGER,
                     prediction_id INTEGER REFERENCES predictions(id) ON DELETE CASCADE,
-                    tirage_id INTEGER REFERENCES tirages_keno(id) ON DELETE CASCADE,
+                    tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 
@@ -120,8 +120,8 @@ class PostgreSQLManager:
                 );
                 
                 -- Index pour performance
-                CREATE INDEX IF NOT EXISTS idx_tirages_date ON tirages_keno(date_tirage DESC);
-                CREATE INDEX IF NOT EXISTS idx_tirages_numeros ON tirages_keno USING GIN(numeros);
+                CREATE INDEX IF NOT EXISTS idx_tirages_date ON tirages(date_tirage DESC);
+                CREATE INDEX IF NOT EXISTS idx_tirages_numeros ON tirages USING GIN(numeros);
                 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
                 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
                 CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id);
