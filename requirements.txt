@@ -11,10 +11,10 @@ Flask-Login==0.6.3
 psycopg2-binary==2.9.9
 SQLAlchemy==2.0.23
 
-# Machine Learning - versions compatibles Python 3.13
+# Machine Learning - versions compatibles Python 3.12/3.11
 scikit-learn==1.5.2
 numpy==1.26.4
-pandas==2.2.2
+pandas==2.1.4
 matplotlib==3.9.2
 seaborn==0.13.2
 joblib==1.4.2
