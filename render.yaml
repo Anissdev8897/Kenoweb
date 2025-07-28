@@ -1,19 +1,18 @@
 # Configuration Render pour Keno Analyzer Pro
 services:
   - type: web
-    name: kenoweb
+    name: keno-analyzer-pro
     env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn src.main:app"
-     envVars:
-    - key: PYTHON_VERSION
-      value: "3.10"
-    - key: FLASK_ENV
-      value: "production"
-    - key: DATABASE_URL
-      fromDatabase:
-        name: keno-db
-        property: connectionString
+    buildCommand: |
+      pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
+    startCommand: gunicorn -w 4 -b 0.0.0.0:$PORT main:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: keno-db
+          property: connectionString
       - key: FLASK_ENV
         value: production
       - key: PYTHONUNBUFFERED
