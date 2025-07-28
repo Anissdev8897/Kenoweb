@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-from database_manager_postgresql import get_postgresql_manager
-
-db_manager = get_postgresql_manager()
 """
 Keno Analyzer Pro - Application Flask pour déploiement web
 Version adaptée avec système de mise à jour automatique et réentraînement
@@ -51,9 +48,11 @@ except ImportError as e:
 try:
     from database_manager_postgresql import get_postgresql_manager
     DATABASE_MANAGER_AVAILABLE = True
+    db_manager = get_postgresql_manager()
 except ImportError as e:
     logging.warning(f"Gestionnaire de base de données non disponible: {e}")
     DATABASE_MANAGER_AVAILABLE = False
+    db_manager = None
 
 logger = logging.getLogger(__name__)
 
