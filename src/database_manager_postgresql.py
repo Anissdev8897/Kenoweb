@@ -25,11 +25,11 @@ class PostgreSQLManager:
                 CREATE EXTENSION IF NOT EXISTS pgcrypto;
                 
                 -- Table des tirages
-                CREATE TABLE IF NOT EXISTS tirages_keno (
+                CREATE TABLE IF NOT EXISTS tirages (
                     id SERIAL PRIMARY KEY,
                     date_tirage DATE NOT NULL,
                     heure_tirage TIME,
-                    numeros INTEGER[20] NOT NULL,
+                    numeros INTEGER[] NOT NULL,
                     multiplicateur INTEGER,
                     joker VARCHAR(20),
                     periode VARCHAR(10),
@@ -56,7 +56,7 @@ class PostgreSQLManager:
                 -- Table unifiée des prédictions
                 CREATE TABLE IF NOT EXISTS predictions (
                     id SERIAL PRIMARY KEY,
-                    tirage_id INTEGER REFERENCES tirages_keno(id) ON DELETE SET NULL,
+                    tirage_id INTEGER REFERENCES tirages(id) ON DELETE SET NULL,
                     user_id VARCHAR(50) NOT NULL,
                     method VARCHAR(100) NOT NULL,
                     numeros INTEGER[] NOT NULL,
@@ -248,7 +248,7 @@ class PostgreSQLManager:
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(text("""
-                    INSERT INTO tirages_keno (date_tirage, heure_tirage, numeros, multiplicateur, joker)
+                    INSERT INTO tirages (date_tirage, heure_tirage, numeros, multiplicateur, joker)
                     VALUES (:date_tirage, :heure_tirage, :numeros, :multiplicateur, :joker)
                     RETURNING id
                 """), {
@@ -270,7 +270,7 @@ class PostgreSQLManager:
         """Retourne les informations sur la base de données"""
         try:
             with self.engine.connect() as conn:
-                tirages_count = conn.execute(text("SELECT COUNT(*) FROM tirages_keno")).fetchone()[0]
+                tirages_count = conn.execute(text("SELECT COUNT(*) FROM tirages")).fetchone()[0]
                 predictions_count = conn.execute(text("SELECT COUNT(*) FROM predictions")).fetchone()[0]
                 users_count = conn.execute(text("SELECT COUNT(*) FROM users")).fetchone()[0]
                 
