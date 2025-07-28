@@ -4,10 +4,9 @@ services:
     name: keno-analyzer-pro
     env: python
     buildCommand: |
-      pip install --upgrade pip
+      pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
-    startCommand: |
-      python src/main.py
+    startCommand: python src/main.py
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
@@ -20,7 +19,7 @@ services:
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: PORT
-        value: 10000
+        value: "10000"
     disk:
       name: keno-data
       mountPath: /app/data
