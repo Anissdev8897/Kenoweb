@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keno Analyzer Pro - Accueil</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .landing-container {
+            background: white;
+            padding: 60px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        
+        .landing-header {
+            margin-bottom: 40px;
+        }
+        
+        .landing-header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .landing-header p {
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+        }
+        
+        .features {
+            margin: 40px 0;
+            text-align: left;
+        }
+        
+        .features h3 {
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #666;
+        }
+        
+        .feature-item::before {
+            content: "✅";
+            margin-right: 10px;
+        }
+        
+        .auth-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 40px;
+        }
+        
+        .auth-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #dee2e6;
+        }
+        
+        .btn-anonymous {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .auth-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+        
+        .loading {
+            display: none;
+            margin-top: 20px;
+            color: #667eea;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="landing-container">
+        <div class="landing-header">
+            <h1>🔮 Keno Analyzer Pro</h1>
+            <p>Analyse intelligente des tirages Keno FDJ</p>
+        </div>
+        
+        <div class="features">
+            <h3>Fonctionnalités incluses :</h3>
+            <div class="feature-item">Analyse statistique avancée des tirages</div>
+            <div class="feature-item">Prédictions basées sur l'IA</div>
+            <div class="feature-item">Chat communautaire et optimisation</div>
+            <div class="feature-item">Interface moderne et intuitive</div>
+            <div class="feature-item">Mises à jour automatiques des données</div>
+        </div>
+        
+        <div class="auth-options">
+            <a href="{{ url_for('auth.login') }}" class="auth-btn btn-primary">
+                🔐 Se connecter
+            </a>
+            
+            <a href="{{ url_for('auth.register') }}" class="auth-btn btn-secondary">
+                📝 S'inscrire
+            </a>
+            
+            <button onclick="anonymousAccess()" class="auth-btn btn-anonymous">
+                👤 Accès anonyme
+            </button>
+        </div>
+        
+        <div class="warning">
+            <strong>Note :</strong> L'accès anonyme ne permet pas d'utiliser le chat communautaire et certaines fonctionnalités avancées.
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Connexion en cours...</p>
+        </div>
+    </div>
+
+    <script>
+        function anonymousAccess() {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+            
+            fetch('/api/anonymous', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/analyser';
+                } else {
+                    alert('Erreur lors de la connexion anonyme');
+                    loading.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Erreur de connexion');
+                loading.style.display = 'none';
+            });
+        }
+
+        // Vérifier si l'utilisateur est déjà connecté
+        fetch('/api/check-auth')
+            .then(response => response.json())
+            .then(data => {
+                if (data.authenticated) {
+                    window.location.href = '/analyser';
+                }
+            });
+    </script>
+</body>
+</html>

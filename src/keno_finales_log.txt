@@ -1,0 +1,169 @@
+2025-07-14 15:50:02,781 - INFO - SSH_PRIVATE_KEY non définie, fonctionnement sans SSH.
+2025-07-14 15:50:02,782 - INFO - Analyseurs spécialisés initialisés avec succès
+2025-07-14 15:50:02,782 - INFO - SSH non disponible, fonctionnement en mode local uniquement.
+2025-07-14 15:50:02,876 - INFO - Chargé 4872 tirages depuis le CSV
+2025-07-14 15:50:02,876 - INFO - Thread de mise à jour automatique démarré (toutes les 6 heures)
+2025-07-14 15:50:02,876 - INFO - Thread de mise à jour automatique configuré
+2025-07-14 16:00:14,360 - INFO - SSH_PRIVATE_KEY non définie, fonctionnement sans SSH.
+2025-07-14 16:00:14,362 - INFO - Analyseurs spécialisés initialisés avec succès
+2025-07-14 16:00:14,362 - INFO - SSH non disponible, fonctionnement en mode local uniquement.
+2025-07-14 16:00:14,456 - INFO - Chargé 4872 tirages depuis le CSV
+2025-07-14 16:00:14,457 - INFO - Thread de mise à jour automatique démarré (toutes les 6 heures)
+2025-07-14 16:00:14,457 - INFO - Thread de mise à jour automatique configuré
+2025-07-14 16:00:22,740 - INFO - SSH_PRIVATE_KEY non définie, fonctionnement sans SSH.
+2025-07-14 16:00:22,741 - INFO - Analyseurs spécialisés initialisés avec succès
+2025-07-14 16:00:22,741 - INFO - SSH non disponible, fonctionnement en mode local uniquement.
+2025-07-14 16:00:22,804 - INFO - Chargé 4872 tirages depuis le CSV
+2025-07-14 16:00:22,805 - INFO - Thread de mise à jour automatique démarré (toutes les 6 heures)
+2025-07-14 16:00:22,805 - INFO - Thread de mise à jour automatique configuré
+2025-07-14 16:00:22,836 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://169.254.0.21:5001
+2025-07-14 16:00:22,837 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-14 16:02:02,443 - INFO - SSH_PRIVATE_KEY non définie, fonctionnement sans SSH.
+2025-07-14 16:02:02,445 - INFO - Analyseurs spécialisés initialisés avec succès
+2025-07-14 16:02:02,445 - INFO - SSH non disponible, fonctionnement en mode local uniquement.
+2025-07-14 16:02:02,508 - INFO - Chargé 4872 tirages depuis le CSV
+2025-07-14 16:02:02,508 - INFO - Thread de mise à jour automatique démarré (vérification aux heures de tirage Keno)
+2025-07-14 16:02:02,508 - INFO - Thread de mise à jour automatique configuré
+2025-07-14 16:02:20,746 - INFO - 127.0.0.1 - - [14/Jul/2025 16:02:20] "GET / HTTP/1.1" 200 -
+2025-07-14 16:02:20,804 - INFO - 127.0.0.1 - - [14/Jul/2025 16:02:20] "GET /api/stats HTTP/1.1" 200 -
+2025-07-14 16:02:20,806 - INFO - 127.0.0.1 - - [14/Jul/2025 16:02:20] "GET /api/last-draw HTTP/1.1" 200 -
+2025-07-14 16:02:20,807 - INFO - Prédictions chargées depuis le fichier
+2025-07-14 16:02:20,808 - INFO - 127.0.0.1 - - [14/Jul/2025 16:02:20] "GET /api/predictions HTTP/1.1" 200 -
+2025-07-14 16:02:20,810 - INFO - 127.0.0.1 - - [14/Jul/2025 16:02:20] "GET /health HTTP/1.1" 200 -
+2025-07-14 16:02:20,916 - INFO - 127.0.0.1 - - [14/Jul/2025 16:02:20] "GET /favicon.ico HTTP/1.1" 200 -
+2025-07-14 16:02:43,148 - INFO - DataFrame créé avec 4872 tirages
+2025-07-14 16:02:43,153 - INFO - Prédiction de 8 numéros par analyse des écarts...
+2025-07-14 16:02:43,153 - INFO - Calcul des statistiques d'écarts sur 200 tirages...
+2025-07-14 16:02:44,876 - INFO - Calcul des écarts actuels...
+2025-07-14 16:02:44,917 - INFO - Écarts calculés pour 70 numéros
+2025-07-14 16:02:44,917 - INFO - Statistiques d'écarts calculées. 16 numéros en retard identifiés.
+2025-07-14 16:02:44,917 - INFO - Prédiction par écarts terminée: [20, 24, 26, 29, 33, 43, 44, 46]
+2025-07-14 16:02:44,918 - INFO - Prédiction écarts zéro (spécialisé): [20, 24, 26, 29, 33, 43, 44, 46]
+2025-07-14 16:02:44,918 - INFO - Prédiction 0 (ecarts_zero) évaluée automatiquement
+2025-07-14 16:02:44,918 - INFO - 127.0.0.1 - - [14/Jul/2025 16:02:44] "POST /api/analyze HTTP/1.1" 200 -
+2025-07-14 16:02:44,928 - INFO - Prédictions sauvegardées dans /home/ubuntu/Kenoweb-master/src/predictions.json
+2025-07-14 16:02:44,928 - INFO - 127.0.0.1 - - [14/Jul/2025 16:02:44] "POST /api/predictions HTTP/1.1" 200 -
+2025-07-14 16:02:44,943 - INFO - Prédictions chargées depuis le fichier
+2025-07-14 16:02:44,943 - INFO - 127.0.0.1 - - [14/Jul/2025 16:02:44] "GET /api/predictions HTTP/1.1" 200 -
+2025-07-14 16:03:23,819 - INFO - 127.0.0.1 - - [14/Jul/2025 16:03:23] "GET /api/stats HTTP/1.1" 200 -
+2025-07-14 16:06:43,134 - INFO - SSH_PRIVATE_KEY non définie, fonctionnement sans SSH.
+2025-07-14 16:06:43,136 - INFO - Analyseurs spécialisés initialisés avec succès
+2025-07-14 16:06:43,136 - INFO - SSH non disponible, fonctionnement en mode local uniquement.
+2025-07-14 16:06:43,197 - INFO - Chargé 4872 tirages depuis le CSV
+2025-07-14 16:06:43,197 - INFO - Thread de mise à jour automatique démarré (vérification aux heures de tirage Keno)
+2025-07-14 16:06:43,198 - INFO - Thread de mise à jour automatique configuré
+2025-07-14 16:06:43,207 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://169.254.0.21:5002
+2025-07-14 16:06:43,207 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-14 16:07:02,572 - INFO - 127.0.0.1 - - [14/Jul/2025 16:07:02] "GET / HTTP/1.1" 200 -
+2025-07-14 16:07:02,608 - INFO - 127.0.0.1 - - [14/Jul/2025 16:07:02] "GET /api/stats HTTP/1.1" 200 -
+2025-07-14 16:07:02,616 - INFO - 127.0.0.1 - - [14/Jul/2025 16:07:02] "GET /api/last-draw HTTP/1.1" 200 -
+2025-07-14 16:07:02,619 - INFO - Prédictions chargées depuis le fichier
+2025-07-14 16:07:02,619 - INFO - 127.0.0.1 - - [14/Jul/2025 16:07:02] "GET /api/predictions HTTP/1.1" 200 -
+2025-07-14 16:07:02,621 - INFO - 127.0.0.1 - - [14/Jul/2025 16:07:02] "GET /health HTTP/1.1" 200 -
+2025-07-14 16:07:02,665 - INFO - 127.0.0.1 - - [14/Jul/2025 16:07:02] "GET /favicon.ico HTTP/1.1" 200 -
+2025-07-14 16:07:31,282 - INFO - 127.0.0.1 - - [14/Jul/2025 16:07:31] "GET /chat HTTP/1.1" 200 -
+2025-07-14 16:07:51,358 - INFO - 127.0.0.1 - - [14/Jul/2025 16:07:51] "[31m[1mPOST /api/chat/send HTTP/1.1[0m" 400 -
+<<<<<<< HEAD
+2025-07-20 09:44:52,328 - INFO - SSH_PRIVATE_KEY non définie, fonctionnement sans SSH.
+2025-07-20 09:44:52,329 - INFO - SSH non disponible, fonctionnement en mode local uniquement.
+2025-07-20 09:44:52,330 - INFO - Base de données locale initialisée: keno_data.db
+2025-07-20 09:44:52,330 - WARNING - Clé SSH non trouvée: /home/ubuntu/.ssh/id_rsa
+2025-07-20 09:44:52,330 - INFO - Gestionnaire de base de données initialisé
+2025-07-20 09:44:52,330 - INFO - Gestionnaire de base de données initialisé avec succès
+2025-07-20 09:44:52,330 - INFO - Analyseurs spécialisés initialisés avec succès
+2025-07-20 09:44:52,392 - INFO - Chargé 4884 tirages depuis le CSV
+2025-07-20 09:44:52,393 - INFO - Thread de mise à jour automatique démarré (toutes les 6 heures)
+2025-07-20 09:44:52,393 - INFO - Thread de mise à jour automatique configuré
+2025-07-20 09:44:52,403 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-20 09:44:52,404 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-20 09:48:10,261 - INFO - SSH_PRIVATE_KEY non définie, fonctionnement sans SSH.
+2025-07-20 09:48:10,262 - INFO - SSH non disponible, fonctionnement en mode local uniquement.
+2025-07-20 09:48:10,263 - INFO - Base de données locale initialisée: keno_data.db
+2025-07-20 09:48:10,493 - INFO - Connected (version 2.0, client Go)
+2025-07-20 09:48:10,775 - INFO - Authentication (publickey) failed.
+2025-07-20 09:48:10,931 - WARNING - Connexion SSH échouée: Authentication failed: transport shut down or saw EOF
+2025-07-20 09:48:10,931 - INFO - Gestionnaire de base de données initialisé
+2025-07-20 09:48:10,931 - INFO - Gestionnaire de base de données initialisé avec succès
+2025-07-20 09:48:10,931 - INFO - Analyseurs spécialisés initialisés avec succès
+2025-07-20 09:48:11,002 - INFO - Chargé 4884 tirages depuis le CSV
+2025-07-20 09:48:11,002 - INFO - Thread de mise à jour automatique démarré (toutes les 6 heures)
+2025-07-20 09:48:11,002 - INFO - Thread de mise à jour automatique configuré
+2025-07-20 09:48:11,065 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-20 09:48:11,065 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-20 09:51:35,219 - INFO - SSH_PRIVATE_KEY non définie, fonctionnement sans SSH.
+2025-07-20 09:51:35,220 - INFO - SSH non disponible, fonctionnement en mode local uniquement.
+2025-07-20 09:51:35,221 - INFO - Base de données locale initialisée: keno_data.db
+2025-07-20 09:51:35,446 - INFO - Connected (version 2.0, client Go)
+2025-07-20 09:51:35,726 - INFO - Authentication (publickey) failed.
+2025-07-20 09:51:35,859 - WARNING - Connexion SSH échouée: Authentication failed: transport shut down or saw EOF
+2025-07-20 09:51:35,859 - INFO - Gestionnaire de base de données initialisé
+2025-07-20 09:51:35,859 - INFO - Gestionnaire de base de données initialisé avec succès
+2025-07-20 09:51:35,859 - INFO - Analyseurs spécialisés initialisés avec succès
+2025-07-20 09:51:35,919 - INFO - Chargé 4884 tirages depuis le CSV
+2025-07-20 09:51:35,920 - INFO - Thread de mise à jour automatique démarré (toutes les 6 heures)
+2025-07-20 09:51:35,920 - INFO - Thread de mise à jour automatique configuré
+2025-07-20 09:51:35,965 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-20 09:51:35,965 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-20 09:52:04,427 - INFO - 127.0.0.1 - - [20/Jul/2025 09:52:04] "GET / HTTP/1.1" 200 -
+2025-07-20 09:52:04,467 - INFO - 127.0.0.1 - - [20/Jul/2025 09:52:04] "GET /api/last-draw HTTP/1.1" 200 -
+2025-07-20 09:52:04,468 - INFO - 127.0.0.1 - - [20/Jul/2025 09:52:04] "GET /api/stats HTTP/1.1" 200 -
+2025-07-20 09:52:04,468 - INFO - Prédictions chargées depuis le fichier
+2025-07-20 09:52:04,469 - INFO - 127.0.0.1 - - [20/Jul/2025 09:52:04] "GET /api/predictions HTTP/1.1" 200 -
+2025-07-20 09:52:04,469 - INFO - 127.0.0.1 - - [20/Jul/2025 09:52:04] "GET /health HTTP/1.1" 200 -
+2025-07-20 09:52:04,621 - INFO - 127.0.0.1 - - [20/Jul/2025 09:52:04] "GET /favicon.ico HTTP/1.1" 200 -
+2025-07-20 09:52:39,973 - INFO - 127.0.0.1 - - [20/Jul/2025 09:52:39] "POST /api/analyze HTTP/1.1" 200 -
+2025-07-20 09:52:39,982 - INFO - Prédiction sauvegardée: undefined - Analyse des Fréquences - 8 numéros
+2025-07-20 09:52:39,982 - INFO - Prédiction sauvegardée en base: ID 3
+2025-07-20 09:52:39,982 - INFO - Prédictions sauvegardées dans /home/ubuntu/Kenoweb-master/Kenoweb-master/src/predictions.json
+2025-07-20 09:52:39,983 - INFO - 127.0.0.1 - - [20/Jul/2025 09:52:39] "POST /api/predictions HTTP/1.1" 200 -
+2025-07-20 09:52:39,989 - INFO - Prédictions chargées depuis le fichier
+2025-07-20 09:52:39,990 - INFO - 127.0.0.1 - - [20/Jul/2025 09:52:39] "GET /api/predictions HTTP/1.1" 200 -
+2025-07-20 09:56:04,694 - INFO - SSH_PRIVATE_KEY non définie, fonctionnement sans SSH.
+2025-07-20 09:56:04,695 - INFO - SSH non disponible, fonctionnement en mode local uniquement.
+2025-07-20 09:56:04,696 - INFO - Base de données locale initialisée: keno_data.db
+2025-07-20 09:56:04,923 - INFO - Connected (version 2.0, client Go)
+2025-07-20 09:56:05,203 - INFO - Authentication (publickey) failed.
+2025-07-20 09:56:05,336 - WARNING - Connexion SSH échouée: Authentication failed: transport shut down or saw EOF
+2025-07-20 09:56:05,336 - INFO - Gestionnaire de base de données initialisé
+2025-07-20 09:56:05,336 - INFO - Gestionnaire de base de données initialisé avec succès
+2025-07-20 09:56:05,336 - INFO - Analyseurs spécialisés initialisés avec succès
+2025-07-20 09:56:05,397 - INFO - Chargé 4884 tirages depuis le CSV
+2025-07-20 09:56:05,398 - INFO - Thread de mise à jour automatique démarré (toutes les 6 heures)
+2025-07-20 09:56:05,398 - INFO - Thread de mise à jour automatique configuré
+2025-07-20 09:56:20,500 - INFO - 127.0.0.1 - - [20/Jul/2025 09:56:20] "GET / HTTP/1.1" 200 -
+2025-07-20 09:56:20,532 - INFO - 127.0.0.1 - - [20/Jul/2025 09:56:20] "GET /api/stats HTTP/1.1" 200 -
+2025-07-20 09:56:20,533 - INFO - 127.0.0.1 - - [20/Jul/2025 09:56:20] "GET /api/last-draw HTTP/1.1" 200 -
+2025-07-20 09:56:20,535 - INFO - 127.0.0.1 - - [20/Jul/2025 09:56:20] "GET /health HTTP/1.1" 200 -
+2025-07-20 09:56:20,536 - INFO - Prédictions chargées depuis le fichier
+2025-07-20 09:56:20,537 - INFO - 127.0.0.1 - - [20/Jul/2025 09:56:20] "GET /api/predictions HTTP/1.1" 200 -
+2025-07-20 09:56:38,370 - INFO - 127.0.0.1 - - [20/Jul/2025 09:56:38] "GET /api/user-predictions?username=TestUser2 HTTP/1.1" 200 -
+2025-07-20 10:00:55,870 - INFO - SSH_PRIVATE_KEY non définie, fonctionnement sans SSH.
+2025-07-20 10:00:55,871 - INFO - 🔗 Connexion à la base de données PostgreSQL...
+2025-07-20 10:00:55,871 - INFO - SSH non disponible, fonctionnement en mode local uniquement.
+2025-07-20 10:00:57,024 - ERROR - ❌ Erreur de connexion PostgreSQL: connection to server at "dpg-d1o9j7s9c44c73fapc40-a.frankfurt-postgres.render.com" (3.120.236.187), port 5432 failed: SSL connection has been closed unexpectedly
+
+2025-07-20 10:00:57,024 - INFO - 🔄 Basculement vers SQLite local...
+2025-07-20 10:00:57,024 - INFO - ✅ Base de données SQLite locale initialisée
+2025-07-20 10:00:57,025 - INFO - ✅ Tables créées avec succès (sqlite)
+2025-07-20 10:00:57,025 - INFO - Gestionnaire de base de données initialisé avec succès
+2025-07-20 10:00:57,025 - INFO - Analyseurs spécialisés initialisés avec succès
+2025-07-20 10:00:57,088 - INFO - Chargé 4884 tirages depuis le CSV
+2025-07-20 10:00:57,088 - INFO - Thread de mise à jour automatique démarré (toutes les 6 heures)
+2025-07-20 10:00:57,089 - INFO - Thread de mise à jour automatique configuré
+=======
+>>>>>>> f0f9354b06871d560ddc5379b4d9036f1447d728

@@ -1,0 +1,46 @@
+# Core Framework
+Flask==3.1.1
+Flask-CORS==6.0.1
+
+# Database
+SQLAlchemy==2.0.41
+psycopg2-binary==2.9.10
+
+# Machine Learning
+scikit-learn==1.7.0
+numpy==2.3.1
+pandas==2.3.1
+joblib==1.5.1
+
+# Data Science & Visualization
+matplotlib==3.10.0
+seaborn==0.13.2
+scipy==1.16.0
+
+# Cloud Storage
+boto3==1.39.4
+
+# OpenAI API
+openai==1.33.0
+
+# Utilities
+requests==2.32.3
+beautifulsoup4==4.12.2
+paramiko==3.4.0  # Pour SSH programmatique
+
+# Development & Testing
+pytest==8.3.4
+pytest-cov==6.0.0
+
+# Production
+gunicorn==23.0.0
+
+# Optional: Monitoring & Logging
+prometheus-client==0.21.1
+
+# Optional: Caching
+redis==5.2.1
+flask-caching==2.3.0
+
+# Python Version
+# Python >= 3.8 recommandé
