@@ -75,8 +75,9 @@ class PostgreSQLManager:
                     id SERIAL PRIMARY KEY,
                     method VARCHAR(100) UNIQUE NOT NULL,
                     total_predictions INTEGER DEFAULT 0,
-                    correct_predictions INTEGER DEFAULT 0,
-                    accuracy NUMERIC(5,4) DEFAULT 0.0,
+                    successful_predictions INTEGER DEFAULT 0,
+                    success_rate DECIMAL(5,2) DEFAULT 0.00,
+                    avg_confidence DECIMAL(5,2) DEFAULT 0.00,
                     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 
@@ -133,15 +134,10 @@ class PostgreSQLManager:
                 CREATE INDEX IF NOT EXISTS idx_method_stats_method ON method_stats(method);
                 
                 -- Données de base
-                INSERT INTO method_stats (method, total_predictions, correct_predictions, accuracy) VALUES
-                ('frequency', 0, 0, 0.0),
-                ('gaps', 0, 0, 0.0),
-                ('cycles', 0, 0, 0.0),
-                ('mixed', 0, 0, 0.0),
-                ('ml', 0, 0, 0.0),
-                ('fibonacci', 0, 0, 0.0),
-                ('sums', 0, 0, 0.0),
-                ('complete', 0, 0, 0.0)
+                INSERT INTO method_stats (method, total_predictions, successful_predictions, success_rate, avg_confidence) VALUES 
+                ('frequency_analysis', 0, 0, 0.00, 0.00),
+                ('monte_carlo', 0, 0, 0.00, 0.00),
+                ('ml_prediction', 0, 0, 0.00, 0.00)
                 ON CONFLICT (method) DO NOTHING;
             """))
             conn.commit()
