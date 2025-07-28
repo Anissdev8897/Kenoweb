@@ -22,28 +22,28 @@ class PostgreSQLManager:
         with self.engine.connect() as conn:
             conn.execute(text("""
                 -- Extensions nécessaires
-                CREATE EXTENSION IF NOT EXISTS pgcrypto;
+                CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+                CREATE EXTENSION IF NOT EXISTS "pgcrypto";
                 
-                -- Table des tirages
-                CREATE TABLE IF NOT EXISTS tirages_keno (
+                -- Table principale des tirages
+                CREATE TABLE IF NOT EXISTS tirages (
                     id SERIAL PRIMARY KEY,
                     date_tirage DATE NOT NULL,
-                    heure_tirage TIME,
-                    numeros INTEGER[20] NOT NULL,
-                    multiplicateur INTEGER,
-                    joker VARCHAR(20),
-                    periode VARCHAR(10),
+                    numeros INTEGER[] NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 
-                -- Table des utilisateurs avec colonnes manquantes
+                -- Index pour performance
+                CREATE INDEX IF NOT EXISTS idx_tirages_date ON tirages(date_tirage);
+                CREATE INDEX IF NOT EXISTS idx_tirages_numeros ON tirages USING GIN(numeros);
+                
+                -- Table des utilisateurs
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
                     username VARCHAR(50) UNIQUE NOT NULL,
-                    email VARCHAR(255) UNIQUE,
+                    email VARCHAR(255) UNIQUE NOT NULL,
                     password_hash VARCHAR(255) NOT NULL,
-                    password VARCHAR(255) NOT NULL,
                     is_admin BOOLEAN DEFAULT FALSE,
                     is_moderator BOOLEAN DEFAULT FALSE,
                     total_predictions INTEGER DEFAULT 0,
@@ -53,42 +53,37 @@ class PostgreSQLManager:
                     last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 
-                -- Table unifiée des prédictions
+                -- Table des prédictions
                 CREATE TABLE IF NOT EXISTS predictions (
                     id SERIAL PRIMARY KEY,
-                    tirage_id INTEGER REFERENCES tirages_keno(id) ON DELETE SET NULL,
-                    user_id VARCHAR(50) NOT NULL,
+                    tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE,
+                    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
                     method VARCHAR(100) NOT NULL,
                     numeros INTEGER[] NOT NULL,
                     confidence NUMERIC(5,4) DEFAULT 0.0,
                     correct_count INTEGER DEFAULT 0,
                     is_validated BOOLEAN DEFAULT FALSE,
-                    session_id VARCHAR(100),
-                    ip_address INET,
-                    user_agent TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 
-                -- Table des méthodes avec statistiques
+                -- Table des statistiques de méthodes
                 CREATE TABLE IF NOT EXISTS method_stats (
                     id SERIAL PRIMARY KEY,
                     method VARCHAR(100) UNIQUE NOT NULL,
                     total_predictions INTEGER DEFAULT 0,
-                    correct_predictions INTEGER DEFAULT 0,
-                    accuracy NUMERIC(5,4) DEFAULT 0.0,
+                    successful_predictions INTEGER DEFAULT 0,
+                    success_rate DECIMAL(5,2) DEFAULT 0.00,
+                    avg_confidence DECIMAL(5,2) DEFAULT 0.00,
                     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 
                 -- Table des résultats d'analyse
                 CREATE TABLE IF NOT EXISTS analysis_results (
                     id SERIAL PRIMARY KEY,
+                    tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE,
                     analysis_type VARCHAR(50) NOT NULL,
-                    parameters JSONB,
-                    results JSONB NOT NULL,
-                    execution_time_ms INTEGER,
-                    prediction_id INTEGER REFERENCES predictions(id) ON DELETE CASCADE,
-                    tirage_id INTEGER REFERENCES tirages_keno(id) ON DELETE CASCADE,
+                    result_data JSONB,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 
@@ -97,7 +92,7 @@ class PostgreSQLManager:
                     id SERIAL PRIMARY KEY,
                     model_name VARCHAR(100) NOT NULL,
                     model_type VARCHAR(50) NOT NULL,
-                    s3_path VARCHAR(500),
+                    weights JSONB,
                     training_score NUMERIC(10,8),
                     test_score NUMERIC(10,8),
                     r2_score NUMERIC(10,8),
@@ -108,20 +103,9 @@ class PostgreSQLManager:
                     trained_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
                 
-                -- Table des sauvegardes
-                CREATE TABLE IF NOT EXISTS backups (
-                    id SERIAL PRIMARY KEY,
-                    backup_type VARCHAR(50) NOT NULL,
-                    backup_data JSONB NOT NULL,
-                    data_json TEXT,
-                    file_path TEXT,
-                    checksum VARCHAR(64),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-                
                 -- Index pour performance
-                CREATE INDEX IF NOT EXISTS idx_tirages_date ON tirages_keno(date_tirage DESC);
-                CREATE INDEX IF NOT EXISTS idx_tirages_numeros ON tirages_keno USING GIN(numeros);
+                CREATE INDEX IF NOT EXISTS idx_tirages_date ON tirages(date_tirage DESC);
+                CREATE INDEX IF NOT EXISTS idx_tirages_numeros ON tirages USING GIN(numeros);
                 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
                 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
                 CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id);
@@ -129,20 +113,25 @@ class PostgreSQLManager:
                 CREATE INDEX IF NOT EXISTS idx_predictions_created ON predictions(created_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_predictions_tirage ON predictions(tirage_id);
                 CREATE INDEX IF NOT EXISTS idx_analysis_tirage ON analysis_results(tirage_id);
-                CREATE INDEX IF NOT EXISTS idx_analysis_prediction ON analysis_results(prediction_id);
                 CREATE INDEX IF NOT EXISTS idx_method_stats_method ON method_stats(method);
                 
-                -- Données de base
-                INSERT INTO method_stats (method, total_predictions, correct_predictions, accuracy) VALUES
-                ('frequency', 0, 0, 0.0),
-                ('gaps', 0, 0, 0.0),
-                ('cycles', 0, 0, 0.0),
-                ('mixed', 0, 0, 0.0),
-                ('ml', 0, 0, 0.0),
-                ('fibonacci', 0, 0, 0.0),
-                ('sums', 0, 0, 0.0),
-                ('complete', 0, 0, 0.0)
+                -- Insertion de données de test
+                INSERT INTO tirages (date_tirage, numeros) VALUES 
+                ('2024-01-15', ARRAY[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]),
+                ('2024-01-16', ARRAY[21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40])
+                ON CONFLICT DO NOTHING;
+                
+                -- Insertion de statistiques de méthodes
+                INSERT INTO method_stats (method, total_predictions, successful_predictions, success_rate, avg_confidence) VALUES 
+                ('frequency_analysis', 0, 0, 0.00, 0.00),
+                ('monte_carlo', 0, 0, 0.00, 0.00),
+                ('ml_prediction', 0, 0, 0.00, 0.00)
                 ON CONFLICT (method) DO NOTHING;
+                
+                -- Insertion d'un administrateur
+                INSERT INTO users (username, email, password_hash, is_admin, is_moderator) VALUES 
+                ('admin', 'admin@kenoanalyzer.com', '$2b$12$KIXxP3K1Kp5K4K5K6K7K8K9K0K1K2K3K4K5K6K7K8K9K0K1K2', TRUE, TRUE)
+                ON CONFLICT DO NOTHING;
             """))
             conn.commit()
             logger.info("✅ Schéma SQL unifié créé avec succès")
@@ -248,7 +237,7 @@ class PostgreSQLManager:
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(text("""
-                    INSERT INTO tirages_keno (date_tirage, heure_tirage, numeros, multiplicateur, joker)
+                    INSERT INTO tirages (date_tirage, heure_tirage, numeros, multiplicateur, joker)
                     VALUES (:date_tirage, :heure_tirage, :numeros, :multiplicateur, :joker)
                     RETURNING id
                 """), {
@@ -270,7 +259,7 @@ class PostgreSQLManager:
         """Retourne les informations sur la base de données"""
         try:
             with self.engine.connect() as conn:
-                tirages_count = conn.execute(text("SELECT COUNT(*) FROM tirages_keno")).fetchone()[0]
+                tirages_count = conn.execute(text("SELECT COUNT(*) FROM tirages")).fetchone()[0]
                 predictions_count = conn.execute(text("SELECT COUNT(*) FROM predictions")).fetchone()[0]
                 users_count = conn.execute(text("SELECT COUNT(*) FROM users")).fetchone()[0]
                 

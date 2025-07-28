@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-from database_manager_postgresql import get_postgresql_manager
-
-db_manager = get_postgresql_manager()
 """
 Keno Analyzer Pro - Application Flask pour déploiement web
 Version adaptée avec système de mise à jour automatique et réentraînement
@@ -34,7 +31,7 @@ import stat
 # Importer les fonctions d'authentification
 from auth_system import AuthSystem
 
-database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92")
+database_url = os.getenv("DATABASE_URL", "postgresql://localhost:5432/keno_analyzer")
 
 # Import des modules d'analyse spécialisés
 try:
@@ -51,9 +48,11 @@ except ImportError as e:
 try:
     from database_manager_postgresql import get_postgresql_manager
     DATABASE_MANAGER_AVAILABLE = True
+    db_manager = get_postgresql_manager()
 except ImportError as e:
     logging.warning(f"Gestionnaire de base de données non disponible: {e}")
     DATABASE_MANAGER_AVAILABLE = False
+    db_manager = None
 
 logger = logging.getLogger(__name__)
 
