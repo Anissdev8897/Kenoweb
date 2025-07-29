@@ -36,71 +36,70 @@ class PostgreSQLManager:
     def _create_schema(self):
         """Crée les tables et les index en s'assurant de partir d'un état propre."""
         try:
-            # --- ÉTAPE 1: CRÉATION DES TABLES ---
-            # On utilise CREATE TABLE IF NOT EXISTS pour éviter les erreurs si les tables existent déjà.
+            # --- ÉTAPE 1: NETTOYAGE ET CRÉATION DES TABLES ---
             with self.engine.connect() as conn:
                 with conn.begin():
-                    logger.info("Vérification et création des tables si elles n'existent pas...")
+                    logger.info("Nettoyage des anciennes tables si elles existent...")
+                    # LA SOLUTION : On supprime la table potentiellement incorrecte avant de la recréer.
+                    # On fait de même pour les autres tables pour garantir la cohérence.
+                    conn.execute(text("DROP TABLE IF EXISTS ml_models CASCADE;"))
+                    conn.execute(text("DROP TABLE IF EXISTS analysis_results CASCADE;"))
+                    conn.execute(text("DROP TABLE IF EXISTS predictions CASCADE;"))
+                    conn.execute(text("DROP TABLE IF EXISTS tirages CASCADE;"))
+                    conn.execute(text("DROP TABLE IF EXISTS users CASCADE;"))
+                    conn.execute(text("DROP TABLE IF EXISTS method_stats CASCADE;"))
+                    logger.info("Nettoyage terminé.")
+
+                    logger.info("Début de la création des tables...")
                     conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
                     conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"pgcrypto\""))
                     conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
 
+                    # Création des tables
                     conn.execute(text("""
-                        CREATE TABLE IF NOT EXISTS tirages (
+                        CREATE TABLE tirages (
                             id SERIAL PRIMARY KEY, date_tirage DATE NOT NULL UNIQUE, heure_tirage TIME,
                             numeros INTEGER[] NOT NULL DEFAULT '{}'::INTEGER[], multiplicateur INTEGER, joker VARCHAR(20),
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                         )"""))
                     conn.execute(text("""
-                        CREATE TABLE IF NOT EXISTS users (
+                        CREATE TABLE users (
                             id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, email VARCHAR(255) UNIQUE,
                             password VARCHAR(255) NOT NULL, is_admin BOOLEAN DEFAULT FALSE, is_moderator BOOLEAN DEFAULT FALSE,
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                         )"""))
-                    # ... (les autres créations de tables restent identiques)
                     conn.execute(text("""
-                        CREATE TABLE IF NOT EXISTS predictions (
+                        CREATE TABLE predictions (
                             id SERIAL PRIMARY KEY, tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE, user_id VARCHAR(50) NOT NULL,
                             method VARCHAR(100) NOT NULL, numeros INTEGER[] NOT NULL, session_id VARCHAR(255),
                             confidence NUMERIC(5,4) DEFAULT 0.0, correct_count INTEGER DEFAULT 0, is_validated BOOLEAN DEFAULT FALSE,
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                         )"""))
                     conn.execute(text("""
-                        CREATE TABLE IF NOT EXISTS method_stats (
+                        CREATE TABLE method_stats (
                             id SERIAL PRIMARY KEY, method VARCHAR(100) UNIQUE NOT NULL, total_predictions INTEGER DEFAULT 0,
                             correct_predictions INTEGER DEFAULT 0, accuracy FLOAT8 DEFAULT 0.0,
                             last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                         )"""))
                     conn.execute(text("""
-                        CREATE TABLE IF NOT EXISTS analysis_results (
+                        CREATE TABLE analysis_results (
                             id SERIAL PRIMARY KEY, tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE,
                             analysis_type VARCHAR(50) NOT NULL, result_data JSONB, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                             UNIQUE(tirage_id, analysis_type)
                         )"""))
                     conn.execute(text("""
-                        CREATE TABLE IF NOT EXISTS ml_models (
+                        CREATE TABLE ml_models (
                             id SERIAL PRIMARY KEY, model_name VARCHAR(100) NOT NULL, model_type VARCHAR(50) NOT NULL,
                             s3_path VARCHAR(500), training_score NUMERIC(10,8), test_score NUMERIC(10,8),
                             r2_score NUMERIC(10,8), training_time_seconds INTEGER,
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, trained_at TIMESTAMP WITH TIME ZONE
                         )"""))
-                    logger.info("✅ Vérification des tables terminée.")
+                    logger.info("✅ Création des tables terminée.")
 
-            # --- ÉTAPE 2: CRÉATION DES INDEX (AVEC NETTOYAGE PRÉALABLE) ---
+            # --- ÉTAPE 2: CRÉATION DES INDEX ---
             with self.engine.connect() as conn:
                 with conn.begin():
-                    logger.info("Nettoyage et re-création des index...")
-                    # LA SOLUTION : On supprime les index s'ils existent avant de les recréer.
-                    conn.execute(text("DROP INDEX IF EXISTS idx_tirages_date;"))
-                    conn.execute(text("DROP INDEX IF EXISTS idx_tirages_numeros;"))
-                    conn.execute(text("DROP INDEX IF EXISTS idx_users_username;"))
-                    conn.execute(text("DROP INDEX IF EXISTS idx_users_email;"))
-                    conn.execute(text("DROP INDEX IF EXISTS idx_predictions_user;"))
-                    conn.execute(text("DROP INDEX IF EXISTS idx_predictions_method;"))
-                    conn.execute(text("DROP INDEX IF EXISTS idx_predictions_created;"))
-                    conn.execute(text("DROP INDEX IF EXISTS idx_analysis_tirage;"))
-
-                    # Maintenant, on crée les index sur une base propre
+                    logger.info("Début de la création des index...")
                     conn.execute(text("CREATE INDEX idx_tirages_date ON tirages(date_tirage DESC)"))
                     conn.execute(text("CREATE INDEX idx_tirages_numeros ON tirages USING GIN(numeros)"))
                     conn.execute(text("CREATE INDEX idx_users_username ON users(username)"))
