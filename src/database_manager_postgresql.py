@@ -30,9 +30,8 @@ class PostgreSQLManager:
         if not self.database_url:
             raise ValueError("DATABASE_URL environment variable not set and no fallback URL provided.")
         
-        # SOLUTION N°1 : Forcer la connexion SSL
-        # On ajoute "?sslmode=require" si ce n'est pas déjà présent
-        if "?sslmode" not in self.database_url:
+        # SOLUTION N°1 : Forcer la connexion SSL pour Render
+        if "sslmode" not in self.database_url:
             self.database_url += "?sslmode=require"
             
         self.engine = create_engine(self.database_url)
@@ -127,14 +126,66 @@ class PostgreSQLManager:
         except Exception as e:
             logger.error(f"❌ Une erreur critique est survenue lors de la configuration du schéma : {e}")
 
-    # ... (Le reste de vos fonctions) ...
-    
-    # SOLUTION N°3 : Accepter des arguments supplémentaires pour ne pas planter
-    def save_tirage(self, date_tirage, heure_tirage, numeros, multiplicateur=None, joker=None, **kwargs):
-        """Sauvegarde un tirage dans la base de données"""
+    def save_user(self, username, password, email=None):
+        """Sauvegarde un nouvel utilisateur avec un mot de passe en clair."""
         try:
             with self.engine.connect() as conn:
-                # La transaction est gérée par le with...begin()
+                with conn.begin():
+                    result = conn.execute(text("""
+                        INSERT INTO users (username, password, email)
+                        VALUES (:username, :password, :email)
+                        RETURNING id
+                    """), {
+                        "username": username,
+                        "password": password,
+                        "email": email
+                    })
+                    user_id = result.fetchone()[0]
+                    logger.info(f"✅ Utilisateur '{username}' sauvegardé avec succès (ID: {user_id}).")
+                    return user_id
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la sauvegarde de l'utilisateur '{username}': {e}")
+            return None
+
+    def get_user_by_username(self, username):
+        """Récupère un utilisateur par son nom d'utilisateur."""
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT id, username, password, email, is_admin, is_moderator, created_at, last_active 
+                    FROM users 
+                    WHERE username = :username
+                """), {"username": username})
+                user = result.fetchone()
+                return dict(user._mapping) if user else None
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la récupération de l'utilisateur '{username}': {e}")
+            return None
+
+    def save_prediction(self, user_id, method, numeros, confidence=0.0, session_id=None):
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    result = conn.execute(text("""
+                        INSERT INTO predictions (user_id, method, numeros, confidence, session_id)
+                        VALUES (:user_id, :method, :numeros, :confidence, :session_id)
+                        RETURNING id
+                    """), {
+                        "user_id": user_id, "method": method, "numeros": numeros,
+                        "confidence": confidence, "session_id": session_id
+                    })
+                    prediction_id = result.fetchone()[0]
+                    logger.info(f"✅ Prédiction sauvegardée: {user_id} - {method} (ID: {prediction_id})")
+                    return prediction_id
+        except Exception as e:
+            logger.error(f"❌ Erreur sauvegarde prédiction: {e}")
+            return None
+
+    # SOLUTION N°3 : Rendre heure_tirage optionnel pour éviter le crash
+    def save_tirage(self, date_tirage, numeros, heure_tirage=None, multiplicateur=None, joker=None, **kwargs):
+        """Sauvegarde un tirage dans la base de données. L'heure est optionnelle."""
+        try:
+            with self.engine.connect() as conn:
                 with conn.begin():
                     result = conn.execute(text("""
                         INSERT INTO tirages (date_tirage, heure_tirage, numeros, multiplicateur, joker)
@@ -147,11 +198,8 @@ class PostgreSQLManager:
                             updated_at = CURRENT_TIMESTAMP
                         RETURNING id
                     """), {
-                        "date_tirage": date_tirage,
-                        "heure_tirage": heure_tirage,
-                        "numeros": numeros,
-                        "multiplicateur": multiplicateur,
-                        "joker": joker
+                        "date_tirage": date_tirage, "heure_tirage": heure_tirage, "numeros": numeros,
+                        "multiplicateur": multiplicateur, "joker": joker
                     })
                     tirage_id = result.fetchone()[0]
                     logger.info(f"✅ Tirage sauvegardé (ID: {tirage_id})")
@@ -159,7 +207,52 @@ class PostgreSQLManager:
         except Exception as e:
             logger.error(f"❌ Erreur sauvegarde tirage: {e}")
             return None
+
+    def get_all_tirages(self, limit=100):
+        """Récupère la liste des tirages"""
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT id, date_tirage, heure_tirage, numeros, multiplicateur, joker, created_at, updated_at
+                    FROM tirages ORDER BY date_tirage DESC LIMIT :limit
+                """), {"limit": limit})
+                return [dict(row._mapping) for row in result.fetchall()]
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération tirages: {e}")
+            return []
             
-    # Collez ici le reste de vos fonctions (save_user, get_user_by_username, etc.)
-    # ...
+    # J'ai laissé get_system_predictions et get_user_predictions car ils semblent corrects
+    def get_system_predictions(self, limit=50):
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT id, user_id, method, numeros, confidence, created_at, correct_count, is_validated
+                    FROM predictions WHERE user_id = 'system' ORDER BY created_at DESC LIMIT :limit
+                """), {"limit": limit})
+                return [dict(row._mapping) for row in result.fetchall()]
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération prédictions système: {e}")
+            return []
+
+    def get_user_predictions(self, session_id=None, limit=20):
+        try:
+            with self.engine.connect() as conn:
+                if session_id:
+                    query = text("""
+                        SELECT id, user_id, method, numeros, confidence, created_at, correct_count, is_validated
+                        FROM predictions WHERE user_id != 'system' AND (session_id = :session_id OR user_id = :session_id)
+                        ORDER BY created_at DESC LIMIT :limit
+                    """)
+                    params = {"session_id": session_id, "limit": limit}
+                else:
+                    query = text("""
+                        SELECT id, user_id, method, numeros, confidence, created_at, correct_count, is_validated
+                        FROM predictions WHERE user_id != 'system' ORDER BY created_at DESC LIMIT :limit
+                    """)
+                    params = {"limit": limit}
+                result = conn.execute(query, params)
+                return [dict(row._mapping) for row in result.fetchall()]
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération prédictions utilisateur: {e}")
+            return []
 
