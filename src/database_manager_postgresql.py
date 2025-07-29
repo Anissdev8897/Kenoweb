@@ -26,15 +26,26 @@ class PostgreSQLManager:
         if not self.database_url:
             raise ValueError("DATABASE_URL environment variable not set and no fallback URL provided.")
         
-        # S'assurer que le mode SSL est requis pour Render
-        if "sslmode" not in self.database_url:
-            self.database_url += "?sslmode=require"
-            
-        # Configurer le moteur avec le recyclage des connexions pour gérer les timeouts
+        # Configuration SSL avancée pour Render
+        connect_args = {
+            'sslmode': 'require',  # Force l'utilisation de SSL
+            'sslrootcert': None,    # Utilise les certificats système
+            'connect_timeout': 10,  # Timeout de connexion de 10 secondes
+            'keepalives': 1,        # Active keepalive
+            'keepalives_idle': 30,  # Envoie un keepalive après 30s d'inactivité
+            'keepalives_interval': 10,  # Intervalle entre les keepalives
+            'keepalives_count': 5,  # Nombre de tentatives avant abandon
+        }
+
+        # Configurer le moteur avec des paramètres optimisés pour Render
         self.engine = create_engine(
             self.database_url,
-            pool_recycle=300,  # Recycle les connexions inactives depuis plus de 5 minutes (300s)
-            pool_pre_ping=True # Vérifie la connexion avant de l'utiliser
+            pool_size=5,            # Taille minimale du pool de connexions
+            max_overflow=10,        # Taille maximale du pool
+            pool_recycle=300,       # Recycle les connexions inactives après 5 minutes
+            pool_timeout=30,        # Délai d'attente pour obtenir une connexion
+            pool_pre_ping=True,     # Vérifie la connexion avant utilisation
+            connect_args=connect_args
         )
 
     def create_schema_if_needed(self):
