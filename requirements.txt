@@ -10,9 +10,6 @@ SQLAlchemy==2.0.31
 psycopg2-binary==2.9.10
 
 
-# Database
-psycopg2-binary==2.9.9
-SQLAlchemy==2.0.23
 
 # Machine Learning & Data
 numpy==2.1.0 # ✅ Compatible Python 3.10
