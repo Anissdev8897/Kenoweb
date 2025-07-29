@@ -5,12 +5,12 @@ import time
 from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-from database_manager_postgresql import get_postgresql_manager
+from database_manager_postgresql import PostgreSQLManager
 
 class TwoFactorAuth:
     def __init__(self):
         self.sg = SendGridAPIClient(os.environ.get("SENDGRID_API_KEY"))
-        self.db = get_postgresql_manager()
+        self.db = PostgreSQLManager()  # Création directe d'une instance
         self.token_expiry_minutes = 15
 
     def generate_reset_token(self, email):

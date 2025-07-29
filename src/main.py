@@ -44,6 +44,14 @@ except ImportError as e:
     logging.warning(f"Modules spécialisés non disponibles: {e}")
     SPECIALIZED_MODULES_AVAILABLE = False
 
+# Configuration du logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 # Import du gestionnaire de base de données et du système 2FA
 try:
     from database_manager_postgresql import PostgreSQLManager
@@ -61,8 +69,6 @@ except Exception as e:
     logger.error(f"Erreur d'initialisation des dépendances: {e}")
     db_manager = None
     two_fa = None
-
-logger = logging.getLogger(__name__)
 
 
 class KenoWebScraper:
