@@ -406,7 +406,7 @@ class AuthSystem:
             cursor.close()
             conn.close()
             
-            return [dict(user) for user in user in users]
+            return [dict(user) for user in users]
             
         except Exception as e:
             logger.error(f"❌ Erreur récupération tous PostgreSQL: {e}")
