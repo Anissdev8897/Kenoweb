@@ -8,6 +8,19 @@ import pandas as pd
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Instance globale du gestionnaire de base de données
+_postgresql_manager_instance = None
+
+def get_postgresql_manager():
+    """
+    Retourne une instance unique du gestionnaire de base de données PostgreSQL.
+    Implémente le pattern Singleton pour éviter les connexions multiples.
+    """
+    global _postgresql_manager_instance
+    if _postgresql_manager_instance is None:
+        _postgresql_manager_instance = PostgreSQLManager()
+    return _postgresql_manager_instance
+
 class PostgreSQLManager:
     def __init__(self):
         self.database_url = os.environ.get(
