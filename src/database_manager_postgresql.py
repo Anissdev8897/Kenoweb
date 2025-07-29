@@ -18,27 +18,58 @@ class PostgreSQLManager:
         self._create_tables()
     
     def _create_tables(self):
-            with self.engine.connect() as conn:
-            # Vérifie et ajoute les colonnes manquantes
+        """Crée les tables nécessaires avec le nouveau schéma SQL corrigé"""
+        with self.engine.connect() as conn:
+            # Vérification et ajout des colonnes manquantes
             conn.execute(text("""
+                -- Vérification et ajout des colonnes manquantes
                 DO $$
                 BEGIN
-                    -- Vérifie et ajoute la colonne numeros si elle n'existe pas
-                    IF NOT EXISTS (
-                        SELECT 1 
-                        FROM information_schema.columns 
-                        WHERE table_name='tirages' AND column_name='numeros'
-                    ) THEN
-                        ALTER TABLE tirages ADD COLUMN numeros INTEGER[];
+                    -- Vérifie si la table tirages existe
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tirages') THEN
+                        -- Vérifie et ajoute la colonne numeros si elle n'existe pas
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name = 'tirages' AND column_name = 'numeros'
+                        ) THEN
+                            ALTER TABLE tirages ADD COLUMN numeros INTEGER[] NOT NULL DEFAULT '{}';
+                        END IF;
+                        
+                        -- Vérifie et ajoute les autres colonnes si nécessaire
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name = 'tirages' AND column_name = 'created_at'
+                        ) THEN
+                            ALTER TABLE tirages ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                        END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name = 'tirages' AND column_name = 'updated_at'
+                        ) THEN
+                            ALTER TABLE tirages ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                        END IF;
                     END IF;
                 END $$;
-        """))
-        
-        # Continue avec le reste de ta création de tables...
-        conn.execute(text("""
-            -- Ton schéma SQL actuel ici
-            CREATE TABLE IF NOT EXISTS tirages (...);
-            -- etc.
+            
+                -- Création des tables si elles n'existent pas
+                CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+                CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+            """))
+            
+            # Création des tables
+            conn.execute(text("""
+                -- Extensions nécessaires
+                CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+                CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+                
+                -- Table principale des tirages
+                CREATE TABLE IF NOT EXISTS tirages (
+                    id SERIAL PRIMARY KEY,
+                    date_tirage DATE NOT NULL,
+                    numeros INTEGER[] NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 
                 -- Index pour performance
