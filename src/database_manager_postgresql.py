@@ -31,18 +31,23 @@ class PostgreSQLManager:
             raise ValueError("DATABASE_URL environment variable not set and no fallback URL provided.")
         
         self.engine = create_engine(self.database_url)
-        self._create_tables()
-    
-    def _create_tables(self):
-        """Crée les tables nécessaires pour correspondre au schéma de la base de données existante."""
+        self._create_schema() # Renommée pour plus de clarté
+
+    def _create_schema(self):
+        """Crée les tables et les index de manière séquentielle et transactionnelle."""
         with self.engine.connect() as conn:
+            # Démarre une transaction explicite
+            transaction = conn.begin()
             try:
-                # Activer les extensions nécessaires
+                # --- Étape 1: Création de toutes les tables ---
+                logger.info("Début de la création des tables...")
+
+                # Extensions
                 conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
                 conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"pgcrypto\""))
                 conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-                
-                # --- Table tirages ---
+
+                # Table tirages
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS tirages (
                         id SERIAL PRIMARY KEY,
@@ -55,10 +60,8 @@ class PostgreSQLManager:
                         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                     )
                 """))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_date ON tirages(date_tirage DESC)"))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_numeros ON tirages USING GIN(numeros)"))
 
-                # --- Table users (INCHANGÉE COMME DEMANDÉ) ---
+                # Table users (INCHANGÉE)
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS users (
                         id SERIAL PRIMARY KEY,
@@ -71,10 +74,8 @@ class PostgreSQLManager:
                         last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                     )
                 """))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)"))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"))
 
-                # --- Table predictions ---
+                # Table predictions
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS predictions (
                         id SERIAL PRIMARY KEY,
@@ -90,11 +91,8 @@ class PostgreSQLManager:
                         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                     )
                 """))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id)"))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_method ON predictions(method)"))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_created ON predictions(created_at DESC)"))
 
-                # --- Table method_stats (MISE À JOUR) ---
+                # Table method_stats
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS method_stats (
                         id SERIAL PRIMARY KEY,
@@ -106,7 +104,7 @@ class PostgreSQLManager:
                     )
                 """))
 
-                # --- Table analysis_results ---
+                # Table analysis_results
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS analysis_results (
                         id SERIAL PRIMARY KEY,
@@ -117,9 +115,8 @@ class PostgreSQLManager:
                         UNIQUE(tirage_id, analysis_type)
                     )
                 """))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_analysis_tirage ON analysis_results(tirage_id)"))
 
-                # --- Table ml_models (MISE À JOUR SELON L'IMAGE) ---
+                # Table ml_models
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS ml_models (
                         id SERIAL PRIMARY KEY,
@@ -134,22 +131,48 @@ class PostgreSQLManager:
                         trained_at TIMESTAMP WITH TIME ZONE
                     )
                 """))
+                
+                logger.info("Tables créées avec succès.")
 
-                # Insertion des méthodes par défaut dans method_stats
+                # --- Étape 2: Création de tous les index ---
+                logger.info("Début de la création des index...")
+
+                # Index pour tirages
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_date ON tirages(date_tirage DESC)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_numeros ON tirages USING GIN(numeros)"))
+
+                # Index pour users
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"))
+
+                # Index pour predictions
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_method ON predictions(method)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_created ON predictions(created_at DESC)"))
+
+                # Index pour analysis_results
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_analysis_tirage ON analysis_results(tirage_id)"))
+                
+                logger.info("Index créés avec succès.")
+
+                # --- Étape 3: Insertion des données initiales ---
                 conn.execute(text("""
                     INSERT INTO method_stats (method)
                     VALUES ('frequency_analysis'), ('monte_carlo'), ('ml_prediction')
                     ON CONFLICT (method) DO NOTHING
                 """))
-                
-                conn.commit()
-                logger.info("✅ Les tables et les index ont été vérifiés et créés avec succès.")
-            except Exception as e:
-                logger.error(f"❌ Erreur lors de la création des tables : {e}")
-                conn.rollback()
 
-    # Le reste des fonctions (get_system_predictions, save_prediction, etc.) reste inchangé
-    # ... (collez ici le reste de vos fonctions de la classe)
+                # Valide la transaction entière
+                transaction.commit()
+                logger.info("✅ Schéma de la base de données vérifié et mis à jour avec succès.")
+
+            except Exception as e:
+                logger.error(f"❌ Erreur lors de la configuration du schéma : {e}")
+                # Annule toute la transaction en cas d'erreur
+                transaction.rollback()
+                logger.error("La transaction a été annulée (rollback).")
+
+    # ... (Le reste de vos fonctions reste ici) ...
     def get_system_predictions(self, limit=50):
         try:
             with self.engine.connect() as conn:
@@ -293,4 +316,3 @@ class PostgreSQLManager:
         except Exception as e:
             logger.error(f"❌ Erreur récupération tirages: {e}")
             return []
-
