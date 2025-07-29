@@ -358,6 +358,37 @@ class AuthSystem:
             logger.error(f"Erreur récupération tous les utilisateurs: {e}")
             return []
     
+    def update_last_login(self, user_id: str) -> bool:
+        """Met à jour la date de dernière connexion d'un utilisateur"""
+        try:
+            import psycopg2
+            from datetime import datetime
+            
+            conn = psycopg2.connect(self.database_url)
+            cursor = conn.cursor()
+            
+            # Mettre à jour à la fois last_active et updated_at
+            cursor.execute("""
+                UPDATE users 
+                SET last_active = %s, 
+                    updated_at = %s
+                WHERE id = %s
+            """, (datetime.now(), datetime.now(), user_id))
+            
+            conn.commit()
+            updated_rows = cursor.rowcount
+            cursor.close()
+            conn.close()
+            
+            if updated_rows > 0:
+                logger.info(f"Mise à jour de la dernière connexion pour l'utilisateur ID: {user_id}")
+                return True
+            return False
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la mise à jour de la dernière connexion: {e}")
+            return False
+
     def _get_all_users_postgresql(self) -> list:
         """Obtenir tous les utilisateurs PostgreSQL"""
         try:
@@ -367,7 +398,7 @@ class AuthSystem:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             
             cursor.execute("""
-                SELECT id, username, email, is_admin, is_moderator, created_at
+                SELECT id, username, email, is_admin, is_moderator, created_at, last_active
                 FROM users ORDER BY created_at DESC
             """)
             
@@ -375,7 +406,7 @@ class AuthSystem:
             cursor.close()
             conn.close()
             
-            return [dict(user) for user in users]
+            return [dict(user) for user in user in users]
             
         except Exception as e:
             logger.error(f"❌ Erreur récupération tous PostgreSQL: {e}")
