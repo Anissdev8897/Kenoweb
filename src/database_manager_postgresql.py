@@ -49,10 +49,12 @@ class PostgreSQLManager:
             pool_timeout=20,        # Timeout plus court pour obtenir une connexion
             pool_pre_ping=True,     # Vérifie la connexion avant utilisation
             pool_use_lifo=True,     # Réutilise les connexions récentes
-            max_retries=3,          # Nombre de tentatives de reconnexion
-            retry_delay=1,          # Délai entre les tentatives
             connect_args=self.connect_args
         )
+        
+        # Configuration des tentatives de reconnexion
+        self.max_retries = 3
+        self.retry_delay = 1
         
         # Configurer le gestionnaire d'événements pour gérer les erreurs de connexion
         from sqlalchemy import event
@@ -277,9 +279,7 @@ class PostgreSQLManager:
         Returns:
             int: ID du tirage sauvegardé ou None en cas d'échec
         """
-        max_retries = 3
-        
-        for attempt in range(max_retries):
+        for attempt in range(self.max_retries):
             try:
                 # Gérer plusieurs formats de date de manière robuste
                 if isinstance(date_tirage, str):
