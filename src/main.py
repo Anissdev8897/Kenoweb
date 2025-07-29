@@ -44,9 +44,11 @@ except ImportError as e:
     logging.warning(f"Modules spécialisés non disponibles: {e}")
     SPECIALIZED_MODULES_AVAILABLE = False
 
-# Import du gestionnaire de base de données
+# Import du gestionnaire de base de données et du système 2FA
 try:
     from database_manager_postgresql import get_postgresql_manager
+    from auth_2fa import TwoFactorAuth
+    two_fa = TwoFactorAuth()
     DATABASE_MANAGER_AVAILABLE = True
     db_manager = get_postgresql_manager()
 except ImportError as e:
@@ -211,28 +213,172 @@ def admin_required(f):
 # Routes d'authentification
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Page de connexion"""
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
         
         if not username or not password:
-            flash('Veuillez remplir tous les champs', 'error')
-            return render_template('login.html')
-        
+            flash('Veuillez fournir un nom d\'utilisateur et un mot de passe', 'error')
+            return redirect(url_for('login_page'))
+            
         user = auth_system.authenticate_user(username, password)
+        
         if user:
             session['user_id'] = user['id']
             session['username'] = user['username']
-            session['is_admin'] = user['is_admin']
-            session['is_moderator'] = user['is_moderator']
+            session['is_admin'] = user.get('is_admin', False)
+            session['is_moderator'] = user.get('is_moderator', False)
             
-            flash('Connexion réussie!', 'success')
-            return redirect('/analyser')
+            # Mettre à jour la dernière connexion
+            auth_system.update_last_login(user['id'])
+            
+            flash('Connexion réussie !', 'success')
+            return redirect(url_for('analyser'))
         else:
-            flash('Nom d\'utilisateur ou mot de passe incorrect', 'error')
-    
+            flash('Identifiants invalides', 'error')
+            
     return render_template('login.html')
+
+# Routes de réinitialisation de mot de passe avec 2FA
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        if not email:
+            flash('Veuillez fournir une adresse email valide', 'error')
+            return redirect(url_for('forgot_password'))
+        
+        try:
+            # Générer et envoyer le code 2FA
+            token = two_fa.generate_reset_token(email)
+            if not token:
+                flash('Aucun compte trouvé avec cette adresse email', 'error')
+                return redirect(url_for('forgot_password'))
+                
+            if two_fa.send_reset_email(email, token):
+                # Configurer la session avec expiration
+                session.permanent = True
+                app.permanent_session_lifetime = timedelta(minutes=30)
+                session['reset_email'] = email
+                session['reset_attempts'] = 0
+                session['last_reset_attempt'] = datetime.utcnow().timestamp()
+                
+                flash('Un code de vérification a été envoyé à votre adresse email', 'info')
+                return redirect(url_for('verify_2fa'))
+            else:
+                flash('Erreur lors de l\'envoi de l\'email. Veuillez réessayer plus tard.', 'error')
+        except Exception as e:
+            logging.error(f"Erreur lors de la demande de réinitialisation: {str(e)}")
+            flash('Une erreur est survenue. Veuillez réessayer.', 'error')
+    
+    return render_template('forgot_password.html')
+
+@app.route('/verify-2fa', methods=['GET', 'POST'])
+def verify_2fa():
+    # Vérifier la session et les tentatives
+    if 'reset_email' not in session:
+        return redirect(url_for('forgot_password'))
+    
+    # Vérifier le nombre de tentatives
+    reset_attempts = session.get('reset_attempts', 0)
+    last_attempt = session.get('last_reset_attempt', 0)
+    
+    # Réinitialiser le compteur après 15 minutes
+    if time.time() - last_attempt > 900:  # 15 minutes
+        reset_attempts = 0
+    
+    # Bloquer après 5 tentatives échouées
+    if reset_attempts >= 5:
+        flash('Trop de tentatives échouées. Veuillez réessayer plus tard.', 'error')
+        return redirect(url_for('forgot_password'))
+    
+    email = session['reset_email']
+    
+    if request.method == 'POST':
+        token = request.form.get('token', '').strip()
+        if not token or len(token) != 6 or not token.isdigit():
+            flash('Veuillez entrer un code de vérification valide à 6 chiffres', 'error')
+            return redirect(url_for('verify_2fa'))
+        
+        try:
+            if two_fa.verify_token(email, token):
+                session['token_verified'] = True
+                session['reset_attempts'] = 0
+                session['reset_token'] = token  # Stocker le token pour la vérification finale
+                return redirect(url_for('reset_password'))
+            else:
+                reset_attempts += 1
+                session['reset_attempts'] = reset_attempts
+                session['last_reset_attempt'] = time.time()
+                
+                remaining_attempts = 5 - reset_attempts
+                if remaining_attempts > 0:
+                    flash(f'Code invalide. Il vous reste {remaining_attempts} essai(s).', 'error')
+                else:
+                    flash('Nombre maximum de tentatives atteint. Veuillez redemander un code.', 'error')
+                    return redirect(url_for('forgot_password'))
+                    
+        except Exception as e:
+            logging.error(f"Erreur lors de la vérification 2FA: {str(e)}")
+            flash('Une erreur est survenue lors de la vérification. Veuillez réessayer.', 'error')
+    
+    return render_template('verify_2fa.html', 
+                         email=email[:3] + '***' + email[email.find('@'):],
+                         remaining_attempts=5 - reset_attempts)
+
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    # Vérifier la session et le token
+    if 'reset_email' not in session or 'reset_token' not in session or not session.get('token_verified'):
+        flash('Session invalide ou expirée. Veuillez redémarrer le processus.', 'error')
+        return redirect(url_for('forgot_password'))
+    
+    email = session['reset_email']
+    token = session['reset_token']
+    
+    if request.method == 'POST':
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        
+        # Validation des mots de passe
+        if not new_password or not confirm_password:
+            flash('Veuillez remplir tous les champs', 'error')
+            return redirect(url_for('reset_password'))
+            
+        if new_password != confirm_password:
+            flash('Les mots de passe ne correspondent pas', 'error')
+            return redirect(url_for('reset_password'))
+            
+        # Vérification de la force du mot de passe
+        if len(new_password) < 8 or not any(c.isupper() for c in new_password) or \
+           not any(c.islower() for c in new_password) or not any(c.isdigit() for c in new_password):
+            flash('Le mot de passe doit contenir au moins 8 caractères, dont une majuscule, une minuscule et un chiffre', 'error')
+            return redirect(url_for('reset_password'))
+        
+        try:
+            if two_fa.reset_password(email, token, new_password):
+                # Journalisation de la réinitialisation
+                logging.info(f"Mot de passe réinitialisé avec succès pour l'utilisateur {email}")
+                
+                # Nettoyer la session
+                session.pop('reset_email', None)
+                session.pop('token_verified', None)
+                session.pop('reset_token', None)
+                session.pop('reset_attempts', None)
+                
+                flash('Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter.', 'success')
+                return redirect(url_for('login'))
+            else:
+                flash('Le lien de réinitialisation est invalide ou a expiré', 'error')
+                return redirect(url_for('forgot_password'))
+                
+        except Exception as e:
+            logging.error(f"Erreur lors de la réinitialisation du mot de passe: {str(e)}")
+            flash('Une erreur est survenue lors de la réinitialisation du mot de passe', 'error')
+    
+    # Afficher un masque pour l'email (sécurité)
+    email_display = email[:3] + '***' + email[email.find('@'):]
+    return render_template('reset_password.html', email=email_display)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
