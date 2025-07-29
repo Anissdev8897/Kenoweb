@@ -60,16 +60,25 @@ class PostgreSQLManager:
                     )
                 """))
                 
+                # S'assurer que l'extension pg_trgm est activée pour les index GIN
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+                
                 # Ajout des index pour les recherches fréquentes
                 conn.execute(text("""
                     CREATE INDEX IF NOT EXISTS idx_tirages_date 
                     ON tirages(date_tirage DESC)
                 """))
-                conn.execute(text("""
-                    CREATE INDEX IF NOT EXISTS idx_tirages_numeros 
-                    ON tirages USING GIN(numeros)
-                """))
-
+                
+                # Création de l'index GIN avec gestion d'erreur
+                try:
+                    conn.execute(text("""
+                        CREATE INDEX IF NOT EXISTS idx_tirages_numeros 
+                        ON tirages USING GIN(numeros)
+                    """))
+                except Exception as e:
+                    logger.warning(f"Impossible de créer l'index GIN : {e}")
+                    conn.rollback()
+                
                 # Vérification et création de la table users si elle n'existe pas
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS users (
