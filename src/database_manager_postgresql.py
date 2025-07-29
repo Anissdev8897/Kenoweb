@@ -1,8 +1,9 @@
 import logging
 import os
+import time
 from datetime import datetime
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, exc
 import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
@@ -26,27 +27,53 @@ class PostgreSQLManager:
         if not self.database_url:
             raise ValueError("DATABASE_URL environment variable not set and no fallback URL provided.")
         
-        # Configuration SSL avancée pour Render
-        connect_args = {
-            'sslmode': 'require',  # Force l'utilisation de SSL
-            'sslrootcert': None,    # Utilise les certificats système
-            'connect_timeout': 10,  # Timeout de connexion de 10 secondes
-            'keepalives': 1,        # Active keepalive
-            'keepalives_idle': 30,  # Envoie un keepalive après 30s d'inactivité
-            'keepalives_interval': 10,  # Intervalle entre les keepalives
-            'keepalives_count': 5,  # Nombre de tentatives avant abandon
+        # Configuration SSL avancée pour Render avec reconnexion
+        self.connect_args = {
+            'sslmode': 'require',
+            'sslrootcert': None,
+            'connect_timeout': 15,
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5,
+            'application_name': 'keno_analyzer',
+            'options': '-c statement_timeout=30000'  # Timeout de 30 secondes par requête
         }
 
         # Configurer le moteur avec des paramètres optimisés pour Render
         self.engine = create_engine(
             self.database_url,
-            pool_size=5,            # Taille minimale du pool de connexions
-            max_overflow=10,        # Taille maximale du pool
-            pool_recycle=300,       # Recycle les connexions inactives après 5 minutes
-            pool_timeout=30,        # Délai d'attente pour obtenir une connexion
+            pool_size=3,            # Réduit pour éviter la surcharge
+            max_overflow=5,         # Réduit pour éviter la surcharge
+            pool_recycle=180,       # Recycle plus fréquemment (3 minutes)
+            pool_timeout=20,        # Timeout plus court pour obtenir une connexion
             pool_pre_ping=True,     # Vérifie la connexion avant utilisation
-            connect_args=connect_args
+            pool_use_lifo=True,     # Réutilise les connexions récentes
+            max_retries=3,          # Nombre de tentatives de reconnexion
+            retry_delay=1,          # Délai entre les tentatives
+            connect_args=self.connect_args
         )
+        
+        # Configurer le gestionnaire d'événements pour gérer les erreurs de connexion
+        from sqlalchemy import event
+        
+        @event.listens_for(self.engine, 'engine_connect')
+        def receive_engine_connect(conn, branch):
+            if branch:
+                return
+            logger.info("Nouvelle connexion établie avec la base de données")
+            
+        @event.listens_for(self.engine, 'checkout')
+        def receive_checkout(dbapi_connection, connection_record, connection_proxy):
+            logger.debug("Vérification de la connexion avant utilisation...")
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute('SELECT 1')
+            except:
+                logger.warning("La connexion a échoué, tentative de reconnexion...")
+                raise exc.DisconnectionError()
+            finally:
+                cursor.close()
 
     def create_schema_if_needed(self):
         """
@@ -238,43 +265,71 @@ class PostgreSQLManager:
             return None
 
     def save_tirage(self, date_tirage, numeros, heure_tirage=None, multiplicateur=None, joker=None, **kwargs):
-        """Sauvegarde un tirage dans la base de données, en gérant plusieurs formats de date."""
-        try:
-            # Gérer plusieurs formats de date de manière robuste
-            if isinstance(date_tirage, str):
-                try:
-                    date_obj = datetime.strptime(date_tirage, '%d/%m/%Y').date()
-                except ValueError:
+        """Sauvegarde un tirage dans la base de données, en gérant plusieurs formats de date.
+        
+        Args:
+            date_tirage (str ou date): Date du tirage (format 'DD/MM/YYYY' ou 'YYYY-MM-DD' ou objet date)
+            numeros (list): Liste des numéros tirés
+            heure_tirage (str, optional): Heure du tirage. Par défaut None.
+            multiplicateur (int, optional): Multiplicateur de gains. Par défaut None.
+            joker (str, optional): Numéro joker. Par défaut None.
+            
+        Returns:
+            int: ID du tirage sauvegardé ou None en cas d'échec
+        """
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                # Gérer plusieurs formats de date de manière robuste
+                if isinstance(date_tirage, str):
                     try:
-                        date_obj = datetime.strptime(date_tirage, '%Y-%m-%d').date()
+                        date_obj = datetime.strptime(date_tirage, '%d/%m/%Y').date()
                     except ValueError:
-                        logger.error(f"Format de date non reconnu pour '{date_tirage}'. Utilisez 'DD/MM/YYYY' ou 'YYYY-MM-DD'.")
-                        return None
-            else:
-                date_obj = date_tirage
+                        try:
+                            date_obj = datetime.strptime(date_tirage, '%Y-%m-%d').date()
+                        except ValueError as ve:
+                            logger.error(f"Format de date non reconnu pour '{date_tirage}'. Utilisez 'DD/MM/YYYY' ou 'YYYY-MM-DD'.")
+                            return None
+                else:
+                    date_obj = date_tirage
 
-            with self.engine.connect() as conn:
-                with conn.begin():
-                    result = conn.execute(text("""
-                        INSERT INTO tirages (date_tirage, heure_tirage, numeros, multiplicateur, joker)
-                        VALUES (:date_tirage, :heure_tirage, :numeros, :multiplicateur, :joker)
-                        ON CONFLICT (date_tirage) DO UPDATE
-                        SET numeros = EXCLUDED.numeros,
-                            heure_tirage = EXCLUDED.heure_tirage,
-                            multiplicateur = EXCLUDED.multiplicateur,
-                            joker = EXCLUDED.joker,
-                            updated_at = CURRENT_TIMESTAMP
-                        RETURNING id
-                    """), {
-                        "date_tirage": date_obj, "heure_tirage": heure_tirage, "numeros": numeros,
-                        "multiplicateur": multiplicateur, "joker": joker
-                    })
-                    tirage_id = result.fetchone()[0]
-                    logger.info(f"✅ Tirage du {date_obj.strftime('%d/%m/%Y')} sauvegardé (ID: {tirage_id})")
-                    return tirage_id
-        except Exception as e:
-            logger.error(f"❌ Erreur lors de la sauvegarde du tirage pour la date '{date_tirage}': {e}")
-            return None
+                with self.engine.connect() as conn:
+                    # Début de la transaction
+                    with conn.begin():
+                        result = conn.execute(text("""
+                            INSERT INTO tirages (date_tirage, heure_tirage, numeros, multiplicateur, joker)
+                            VALUES (:date_tirage, :heure_tirage, :numeros, :multiplicateur, :joker)
+                            ON CONFLICT (date_tirage) DO UPDATE
+                            SET numeros = EXCLUDED.numeros,
+                                heure_tirage = EXCLUDED.heure_tirage,
+                                multiplicateur = EXCLUDED.multiplicateur,
+                                joker = EXCLUDED.joker,
+                                updated_at = CURRENT_TIMESTAMP
+                            RETURNING id
+                        """), {
+                            "date_tirage": date_obj, 
+                            "heure_tirage": heure_tirage, 
+                            "numeros": numeros,
+                            "multiplicateur": multiplicateur, 
+                            "joker": joker
+                        })
+                        
+                        tirage_id = result.fetchone()[0]
+                        logger.info(f"✅ Tirage du {date_obj.strftime('%d/%m/%Y')} sauvegardé (ID: {tirage_id})")
+                        return tirage_id
+                        
+            except Exception as e:
+                if attempt == max_retries - 1:  # Dernière tentative
+                    logger.error(f"❌ Échec après {max_retries} tentatives de sauvegarde du tirage du {date_tirage}: {e}")
+                    return None
+                
+                # Attente exponentielle avant une nouvelle tentative
+                wait_time = (2 ** attempt) * 0.5
+                logger.warning(f"⚠️ Tentative {attempt + 1}/{max_retries} échouée. Nouvelle tentative dans {wait_time:.1f}s...")
+                time.sleep(wait_time)
+        
+        return None
 
     def get_all_tirages(self, limit=100):
         """Récupère la liste des tirages"""
