@@ -56,57 +56,6 @@ except ImportError as e:
 
 logger = logging.getLogger(__name__)
 
-KEY_PATH = os.path.expanduser("~/.ssh/id_rsa")
-
-def prepare_ssh_key():
-    """Prépare la clé SSH si disponible, sinon continue sans SSH"""
-    private_key = os.getenv("SSH_PRIVATE_KEY")
-    if not private_key:
-        logger.info("SSH_PRIVATE_KEY non définie, fonctionnement sans SSH.")
-        return False
-    
-    try:
-        ssh_dir = os.path.dirname(KEY_PATH)
-        if not os.path.exists(ssh_dir):
-            os.makedirs(ssh_dir, mode=0o700, exist_ok=True)
-            logger.info(f"Création du dossier SSH : {ssh_dir}")
-        
-        with open(KEY_PATH, "w") as f:
-            f.write(private_key)
-        
-        os.chmod(KEY_PATH, stat.S_IRUSR | stat.S_IWUSR)
-        logger.info(f"Clé privée SSH configurée dans {KEY_PATH}")
-        return True
-    except Exception as e:
-        logger.error(f"Erreur lors de la configuration SSH: {e}")
-        return False
-
-def connect_ssh_and_run():
-    """Exécute une commande SSH distante si la clé SSH est disponible"""
-    if not prepare_ssh_key():
-        logger.info("SSH non disponible, fonctionnement en mode local uniquement.")
-        return
-    
-    try:
-        subprocess.run([
-            "ssh",
-            "-i", KEY_PATH,
-            "-o", "StrictHostKeyChecking=no",
-            "rv-d1o7ivvfte5s73av11ug@ssh.frankfurt.render.com",
-            "cd ~/app && git pull"
-        ], check=True)
-        logger.info("Commande distante exécutée avec succès via SSH.")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Échec de la commande SSH distante : {e}")
-    except Exception as e:
-        logger.error(f"Erreur SSH inattendue : {e}")
-
-# Lancer dans un thread pour ne pas bloquer Flask (optionnel)
-try:
-    threading.Thread(target=connect_ssh_and_run, daemon=True).start()
-except Exception as e:
-    logger.info(f"Thread SSH non démarré : {e}")
-    logger.info("Application démarrée en mode local uniquement.")
 
 class KenoWebScraper:
     """Scraper pour récupérer les tirages Keno depuis le web"""
