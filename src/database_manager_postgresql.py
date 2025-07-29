@@ -30,6 +30,11 @@ class PostgreSQLManager:
         if not self.database_url:
             raise ValueError("DATABASE_URL environment variable not set and no fallback URL provided.")
         
+        # SOLUTION N°1 : Forcer la connexion SSL
+        # On ajoute "?sslmode=require" si ce n'est pas déjà présent
+        if "?sslmode" not in self.database_url:
+            self.database_url += "?sslmode=require"
+            
         self.engine = create_engine(self.database_url)
         self._create_schema()
 
@@ -37,7 +42,6 @@ class PostgreSQLManager:
         """Crée les tables et les index en s'assurant de partir d'un état propre."""
         try:
             # --- ÉTAPE 1: CRÉATION DES TABLES ---
-            # On utilise CREATE TABLE IF NOT EXISTS pour éviter les erreurs si les tables existent déjà.
             with self.engine.connect() as conn:
                 with conn.begin():
                     logger.info("Vérification et création des tables si elles n'existent pas...")
@@ -57,7 +61,6 @@ class PostgreSQLManager:
                             password VARCHAR(255) NOT NULL, is_admin BOOLEAN DEFAULT FALSE, is_moderator BOOLEAN DEFAULT FALSE,
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                         )"""))
-                    # ... (les autres créations de tables restent identiques)
                     conn.execute(text("""
                         CREATE TABLE IF NOT EXISTS predictions (
                             id SERIAL PRIMARY KEY, tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE, user_id VARCHAR(50) NOT NULL,
@@ -90,7 +93,6 @@ class PostgreSQLManager:
             with self.engine.connect() as conn:
                 with conn.begin():
                     logger.info("Nettoyage et re-création des index...")
-                    # LA SOLUTION : On supprime les index s'ils existent avant de les recréer.
                     conn.execute(text("DROP INDEX IF EXISTS idx_tirages_date;"))
                     conn.execute(text("DROP INDEX IF EXISTS idx_tirages_numeros;"))
                     conn.execute(text("DROP INDEX IF EXISTS idx_users_username;"))
@@ -100,7 +102,6 @@ class PostgreSQLManager:
                     conn.execute(text("DROP INDEX IF EXISTS idx_predictions_created;"))
                     conn.execute(text("DROP INDEX IF EXISTS idx_analysis_tirage;"))
 
-                    # Maintenant, on crée les index sur une base propre
                     conn.execute(text("CREATE INDEX idx_tirages_date ON tirages(date_tirage DESC)"))
                     conn.execute(text("CREATE INDEX idx_tirages_numeros ON tirages USING GIN(numeros)"))
                     conn.execute(text("CREATE INDEX idx_users_username ON users(username)"))
@@ -126,185 +127,39 @@ class PostgreSQLManager:
         except Exception as e:
             logger.error(f"❌ Une erreur critique est survenue lors de la configuration du schéma : {e}")
 
-    # ... (Le reste de vos fonctions reste ici, inchangé) ...
-    def save_user(self, username, password, email=None):
-        """Sauvegarde un nouvel utilisateur avec un mot de passe en clair."""
-        try:
-            with self.engine.connect() as conn:
-                result = conn.execute(text("""
-                    INSERT INTO users (username, password, email)
-                    VALUES (:username, :password, :email)
-                    RETURNING id
-                """), {
-                    "username": username,
-                    "password": password, # Stockage direct
-                    "email": email
-                })
-                conn.commit()
-                user_id = result.fetchone()[0]
-                logger.info(f"✅ Utilisateur '{username}' sauvegardé avec succès (ID: {user_id}).")
-                return user_id
-        except Exception as e:
-            logger.error(f"❌ Erreur lors de la sauvegarde de l'utilisateur '{username}': {e}")
-            return None
-
-    def get_user_by_username(self, username):
-        """Récupère un utilisateur par son nom d'utilisateur."""
-        try:
-            with self.engine.connect() as conn:
-                result = conn.execute(text("""
-                    SELECT id, username, password, email, is_admin, is_moderator, created_at, last_active 
-                    FROM users 
-                    WHERE username = :username
-                """), {"username": username})
-                user = result.fetchone()
-                if user:
-                    # Retourne un dictionnaire pour un accès facile aux colonnes
-                    return dict(user._mapping)
-                return None
-        except Exception as e:
-            logger.error(f"❌ Erreur lors de la récupération de l'utilisateur '{username}': {e}")
-            return None
-    def get_system_predictions(self, limit=50):
-        try:
-            with self.engine.connect() as conn:
-                query = text("""
-                    SELECT id, user_id, method, numeros, confidence, created_at, correct_count, is_validated
-                    FROM predictions 
-                    WHERE user_id = 'system'
-                    ORDER BY created_at DESC 
-                    LIMIT :limit
-                """)
-                result = conn.execute(query, {"limit": limit})
-                return [
-                    {
-                        'id': pred[0],
-                        'user_id': pred[1],
-                        'method': pred[2],
-                        'numbers': pred[3],
-                        'confidence': float(pred[4]) if pred[4] else 0.0,
-                        'timestamp': pred[5].isoformat() if pred[5] else None,
-                        'correct_count': pred[6] or 0,
-                        'is_validated': pred[7] or False
-                    }
-                    for pred in result.fetchall()
-                ]
-        except Exception as e:
-            logger.error(f"❌ Erreur récupération prédictions système: {e}")
-            return []
-
-    def get_user_predictions(self, session_id=None, limit=20):
-        try:
-            with self.engine.connect() as conn:
-                if session_id:
-                    query = text("""
-                        SELECT id, user_id, method, numeros, confidence, created_at, correct_count, is_validated
-                        FROM predictions 
-                        WHERE user_id != 'system' AND (session_id = :session_id OR user_id = :session_id)
-                        ORDER BY created_at DESC 
-                        LIMIT :limit
-                    """)
-                    result = conn.execute(query, {"session_id": session_id, "limit": limit})
-                else:
-                    query = text("""
-                        SELECT id, user_id, method, numeros, confidence, created_at, correct_count, is_validated
-                        FROM predictions 
-                        WHERE user_id != 'system'
-                        ORDER BY created_at DESC 
-                        LIMIT :limit
-                    """)
-                    result = conn.execute(query, {"limit": limit})
-                return [
-                    {
-                        'id': pred[0],
-                        'user_id': pred[1],
-                        'method': pred[2],
-                        'numbers': pred[3],
-                        'confidence': float(pred[4]) if pred[4] else 0.0,
-                        'timestamp': pred[5].isoformat() if pred[5] else None,
-                        'correct_count': pred[6] or 0,
-                        'is_validated': pred[7] or False
-                    }
-                    for pred in result.fetchall()
-                ]
-        except Exception as e:
-            logger.error(f"❌ Erreur récupération prédictions utilisateur: {e}")
-            return []
-
-    def save_prediction(self, user_id, method, numeros, confidence=0.0, session_id=None):
-        try:
-            with self.engine.connect() as conn:
-                result = conn.execute(text("""
-                    INSERT INTO predictions (user_id, method, numeros, confidence, session_id)
-                    VALUES (:user_id, :method, :numeros, :confidence, :session_id)
-                    RETURNING id
-                """), {
-                    "user_id": user_id,
-                    "method": method,
-                    "numeros": numeros,
-                    "confidence": confidence,
-                    "session_id": session_id
-                })
-                conn.commit()
-                prediction_id = result.fetchone()[0]
-                logger.info(f"✅ Prédiction sauvegardée: {user_id} - {method} (ID: {prediction_id})")
-                return prediction_id
-        except Exception as e:
-            logger.error(f"❌ Erreur sauvegarde prédiction: {e}")
-            return None
-
-    def save_tirage(self, date_tirage, heure_tirage, numeros, multiplicateur=None, joker=None):
+    # ... (Le reste de vos fonctions) ...
+    
+    # SOLUTION N°3 : Accepter des arguments supplémentaires pour ne pas planter
+    def save_tirage(self, date_tirage, heure_tirage, numeros, multiplicateur=None, joker=None, **kwargs):
         """Sauvegarde un tirage dans la base de données"""
         try:
             with self.engine.connect() as conn:
-                result = conn.execute(text("""
-                    INSERT INTO tirages (date_tirage, heure_tirage, numeros, multiplicateur, joker)
-                    VALUES (:date_tirage, :heure_tirage, :numeros, :multiplicateur, :joker)
-                    ON CONFLICT (date_tirage) DO UPDATE
-                    SET numeros = EXCLUDED.numeros,
-                        heure_tirage = EXCLUDED.heure_tirage,
-                        multiplicateur = EXCLUDED.multiplicateur,
-                        joker = EXCLUDED.joker,
-                        updated_at = CURRENT_TIMESTAMP
-                    RETURNING id
-                """), {
-                    "date_tirage": date_tirage,
-                    "heure_tirage": heure_tirage,
-                    "numeros": numeros,
-                    "multiplicateur": multiplicateur,
-                    "joker": joker
-                })
-                conn.commit()
-                tirage_id = result.fetchone()[0]
-                logger.info(f"✅ Tirage sauvegardé (ID: {tirage_id})")
-                return tirage_id
+                # La transaction est gérée par le with...begin()
+                with conn.begin():
+                    result = conn.execute(text("""
+                        INSERT INTO tirages (date_tirage, heure_tirage, numeros, multiplicateur, joker)
+                        VALUES (:date_tirage, :heure_tirage, :numeros, :multiplicateur, :joker)
+                        ON CONFLICT (date_tirage) DO UPDATE
+                        SET numeros = EXCLUDED.numeros,
+                            heure_tirage = EXCLUDED.heure_tirage,
+                            multiplicateur = EXCLUDED.multiplicateur,
+                            joker = EXCLUDED.joker,
+                            updated_at = CURRENT_TIMESTAMP
+                        RETURNING id
+                    """), {
+                        "date_tirage": date_tirage,
+                        "heure_tirage": heure_tirage,
+                        "numeros": numeros,
+                        "multiplicateur": multiplicateur,
+                        "joker": joker
+                    })
+                    tirage_id = result.fetchone()[0]
+                    logger.info(f"✅ Tirage sauvegardé (ID: {tirage_id})")
+                    return tirage_id
         except Exception as e:
             logger.error(f"❌ Erreur sauvegarde tirage: {e}")
             return None
+            
+    # Collez ici le reste de vos fonctions (save_user, get_user_by_username, etc.)
+    # ...
 
-    def get_all_tirages(self, limit=100):
-        """Récupère la liste des tirages"""
-        try:
-            with self.engine.connect() as conn:
-                result = conn.execute(text("""
-                    SELECT id, date_tirage, heure_tirage, numeros, multiplicateur, joker, created_at, updated_at
-                    FROM tirages
-                    ORDER BY date_tirage DESC
-                    LIMIT :limit
-                """), {"limit": limit})
-                return [
-                    {
-                        'id': row[0],
-                        'date_tirage': row[1].isoformat() if row[1] else None,
-                        'heure_tirage': str(row[2]) if row[2] else None,
-                        'numeros': row[3],
-                        'multiplicateur': row[4],
-                        'joker': row[5],
-                        'created_at': row[6].isoformat() if row[6] else None,
-                        'updated_at': row[7].isoformat() if row[7] else None
-                    }
-                    for row in result.fetchall()
-                ]
-        except Exception as e:
-            logger.error(f"❌ Erreur récupération tirages: {e}")
-            return []
