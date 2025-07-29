@@ -46,15 +46,21 @@ except ImportError as e:
 
 # Import du gestionnaire de base de données et du système 2FA
 try:
-    from database_manager_postgresql import get_postgresql_manager
+    from database_manager_postgresql import PostgreSQLManager
     from auth_2fa import TwoFactorAuth
+    
+    # Création d'une instance de PostgreSQLManager (plus de Singleton)
+    db_manager = PostgreSQLManager()
+    # Initialisation du schéma (uniquement dans le processus principal)
+    if __name__ == '__main__' or not os.environ.get('WERKZEUG_RUN_MAIN'):
+        db_manager.create_schema_if_needed()
+    
     two_fa = TwoFactorAuth()
-    DATABASE_MANAGER_AVAILABLE = True
-    db_manager = get_postgresql_manager()
-except ImportError as e:
-    logging.warning(f"Gestionnaire de base de données non disponible: {e}")
-    DATABASE_MANAGER_AVAILABLE = False
+    logger.info("Gestionnaire de base de données et 2FA initialisés")
+except Exception as e:
+    logger.error(f"Erreur d'initialisation des dépendances: {e}")
     db_manager = None
+    two_fa = None
 
 logger = logging.getLogger(__name__)
 
