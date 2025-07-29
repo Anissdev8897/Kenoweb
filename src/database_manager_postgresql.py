@@ -284,33 +284,89 @@ class PostgreSQLManager:
             logger.error(f"❌ Erreur sauvegarde prédiction: {e}")
             return None
 
-    def save_tirage(self, date_tirage, heure_tirage, numeros, multiplicateur=None, joker=None):
-        """Sauvegarde un tirage dans la base de données"""
+    def save_tirage(self, date_tirage, numeros, heure_tirage=None, multiplicateur=None, joker=None, periode=None):
+        """
+        Sauvegarde un tirage dans la base de données
+        
+        Args:
+            date_tirage (date): Date du tirage
+            numeros (list): Liste des numéros tirés
+            heure_tirage (time, optional): Heure du tirage. Défaut à None.
+            multiplicateur (int, optional): Valeur du multiplicateur. Défaut à None.
+            joker (str, optional): Numéro joker. Défaut à None.
+            periode (str, optional): Période du tirage (ex: 'midi', 'soir'). Défaut à None.
+            
+        Returns:
+            int: L'ID du tirage créé ou mis à jour, ou None en cas d'erreur
+        """
         try:
+            # Convertir la date en objet date si nécessaire
+            if isinstance(date_tirage, str):
+                from datetime import datetime
+                date_tirage = datetime.strptime(date_tirage, '%Y-%m-%d').date()
+                
             with self.engine.connect() as conn:
-                result = conn.execute(text("""
-                    INSERT INTO tirages (date_tirage, heure_tirage, numeros, multiplicateur, joker)
-                    VALUES (:date_tirage, :heure_tirage, :numeros, :multiplicateur, :joker)
-                    ON CONFLICT (date_tirage) DO UPDATE
-                    SET numeros = EXCLUDED.numeros,
-                        heure_tirage = EXCLUDED.heure_tirage,
-                        multiplicateur = EXCLUDED.multiplicateur,
-                        joker = EXCLUDED.joker,
-                        updated_at = CURRENT_TIMESTAMP
-                    RETURNING id
-                """), {
-                    "date_tirage": date_tirage,
-                    "heure_tirage": heure_tirage,
-                    "numeros": numeros,
-                    "multiplicateur": multiplicateur,
-                    "joker": joker
-                })
+                # Vérifier d'abord si la colonne 'periode' existe
+                table_info = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='tirages' AND column_name='periode'
+                """)).fetchone()
+                
+                has_periode_column = bool(table_info)
+                
+                # Construire la requête dynamiquement en fonction des colonnes disponibles
+                if has_periode_column:
+                    sql = """
+                        INSERT INTO tirages (date_tirage, heure_tirage, numeros, multiplicateur, joker, periode)
+                        VALUES (:date_tirage, :heure_tirage, :numeros, :multiplicateur, :joker, :periode)
+                        ON CONFLICT (date_tirage, COALESCE(periode, '')) DO UPDATE
+                        SET numeros = EXCLUDED.numeros,
+                            heure_tirage = EXCLUDED.heure_tirage,
+                            multiplicateur = EXCLUDED.multiplicateur,
+                            joker = EXCLUDED.joker,
+                            updated_at = CURRENT_TIMESTAMP
+                        RETURNING id
+                    """
+                    params = {
+                        "date_tirage": date_tirage,
+                        "heure_tirage": heure_tirage,
+                        "numeros": numeros,
+                        "multiplicateur": multiplicateur,
+                        "joker": joker,
+                        "periode": periode
+                    }
+                else:
+                    sql = """
+                        INSERT INTO tirages (date_tirage, heure_tirage, numeros, multiplicateur, joker)
+                        VALUES (:date_tirage, :heure_tirage, :numeros, :multiplicateur, :joker)
+                        ON CONFLICT (date_tirage) DO UPDATE
+                        SET numeros = EXCLUDED.numeros,
+                            heure_tirage = EXCLUDED.heure_tirage,
+                            multiplicateur = EXCLUDED.multiplicateur,
+                            joker = EXCLUDED.joker,
+                            updated_at = CURRENT_TIMESTAMP
+                        RETURNING id
+                    """
+                    params = {
+                        "date_tirage": date_tirage,
+                        "heure_tirage": heure_tirage,
+                        "numeros": numeros,
+                        "multiplicateur": multiplicateur,
+                        "joker": joker
+                    }
+                
+                result = conn.execute(text(sql), params)
                 conn.commit()
-                tirage_id = result.fetchone()[0]
-                logger.info(f"✅ Tirage sauvegardé (ID: {tirage_id})")
-                return tirage_id
+                
+                if result:
+                    tirage_id = result.fetchone()[0]
+                    logger.info(f"✅ Tirage du {date_tirage} sauvegardé avec succès (ID: {tirage_id})")
+                    return tirage_id
+                return None
+                
         except Exception as e:
-            logger.error(f"❌ Erreur sauvegarde tirage: {e}")
+            logger.error(f"❌ Erreur lors de la sauvegarde du tirage du {date_tirage}: {e}")
             return None
 
     def get_all_tirages(self, limit=100):
