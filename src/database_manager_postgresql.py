@@ -232,12 +232,12 @@ class PostgreSQLManager:
             # Gérer plusieurs formats de date de manière robuste
             if isinstance(date_tirage, str):
                 try:
-                    date_obj = datetime.strptime(date_tirage, \'%d/%m/%Y\').date()
+                    date_obj = datetime.strptime(date_tirage, '%d/%m/%Y').date()
                 except ValueError:
                     try:
-                        date_obj = datetime.strptime(date_tirage, \'%Y-%m-%d\').date()
+                        date_obj = datetime.strptime(date_tirage, '%Y-%m-%d').date()
                     except ValueError:
-                        logger.error(f"Format de date non reconnu pour \'{date_tirage}\'. Utilisez \'DD/MM/YYYY\' ou \'YYYY-MM-DD\'.")
+                        logger.error(f"Format de date non reconnu pour '{date_tirage}'. Utilisez 'DD/MM/YYYY' ou 'YYYY-MM-DD'.")
                         return None
             else:
                 date_obj = date_tirage
@@ -259,10 +259,10 @@ class PostgreSQLManager:
                         "multiplicateur": multiplicateur, "joker": joker
                     })
                     tirage_id = result.fetchone()[0]
-                    logger.info(f"✅ Tirage du {date_obj.strftime(\'%d/%m/%Y\')} sauvegardé (ID: {tirage_id})")
+                    logger.info(f"✅ Tirage du {date_obj.strftime('%d/%m/%Y')} sauvegardé (ID: {tirage_id})")
                     return tirage_id
         except Exception as e:
-            logger.error(f"❌ Erreur lors de la sauvegarde du tirage pour la date \'{date_tirage}\': {e}")
+            logger.error(f"❌ Erreur lors de la sauvegarde du tirage pour la date '{date_tirage}': {e}")
             return None
 
     def get_all_tirages(self, limit=100):
@@ -311,5 +311,4 @@ class PostgreSQLManager:
         except Exception as e:
             logger.error(f"❌ Erreur récupération prédictions utilisateur: {e}")
             return []
-
 
