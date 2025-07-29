@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 
 from sqlalchemy import create_engine, text, exc
+from sqlalchemy.exc import OperationalError, InterfaceError, DatabaseError
 import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
@@ -31,33 +32,70 @@ class PostgreSQLManager:
         self.connect_args = {
             'sslmode': 'require',
             'sslrootcert': None,
-            'connect_timeout': 15,
+            'sslcert': None,
+            'sslkey': None,
+            'ssl_min_protocol_version': 'TLSv1.2',
+            'ssl_max_protocol_version': 'TLSv1.3',
+            'connect_timeout': 20,
             'keepalives': 1,
             'keepalives_idle': 30,
             'keepalives_interval': 10,
             'keepalives_count': 5,
             'application_name': 'keno_analyzer',
-            'options': '-c statement_timeout=30000'  # Timeout de 30 secondes par requête
+            'options': '-c statement_timeout=30000',  # Timeout de 30 secondes par requête
+            'client_encoding': 'utf8'
         }
 
+        from sqlalchemy.pool import QueuePool
+        
         # Configurer le moteur avec des paramètres optimisés pour Render
         self.engine = create_engine(
             self.database_url,
-            pool_size=3,            # Réduit pour éviter la surcharge
-            max_overflow=5,         # Réduit pour éviter la surcharge
-            pool_recycle=180,       # Recycle plus fréquemment (3 minutes)
-            pool_timeout=20,        # Timeout plus court pour obtenir une connexion
+            poolclass=QueuePool,
+            pool_size=2,            # Réduit pour éviter la surcharge
+            max_overflow=3,         # Réduit pour éviter la surcharge
+            pool_recycle=120,       # Recycle plus fréquemment (2 minutes)
+            pool_timeout=15,        # Timeout plus court pour obtenir une connexion
             pool_pre_ping=True,     # Vérifie la connexion avant utilisation
             pool_use_lifo=True,     # Réutilise les connexions récentes
-            connect_args=self.connect_args
+            connect_args=self.connect_args,
+            execution_options={
+                'isolation_level': 'READ COMMITTED',
+                'compiled_cache': None
+            }
         )
         
         # Configuration des tentatives de reconnexion
         self.max_retries = 3
         self.retry_delay = 1
+        self.last_connection_time = None
         
         # Configurer le gestionnaire d'événements pour gérer les erreurs de connexion
         from sqlalchemy import event
+        
+        def reconnect_engine():
+            """Réinitialise le moteur de base de données et établit une nouvelle connexion"""
+            logger.warning("Tentative de reconnexion à la base de données...")
+            self.engine.dispose()  # Ferme toutes les connexions existantes
+            self.engine = create_engine(
+                self.database_url,
+                poolclass=QueuePool,
+                pool_size=2,
+                max_overflow=3,
+                pool_recycle=120,
+                pool_timeout=15,
+                pool_pre_ping=True,
+                pool_use_lifo=True,
+                connect_args=self.connect_args,
+                execution_options={
+                    'isolation_level': 'READ COMMITTED',
+                    'compiled_cache': None
+                }
+            )
+            self.last_connection_time = datetime.now()
+            logger.info("Nouvelle connexion à la base de données établie")
+            
+        self.reconnect_engine = reconnect_engine
         
         @event.listens_for(self.engine, 'engine_connect')
         def receive_engine_connect(conn, branch):
@@ -279,21 +317,28 @@ class PostgreSQLManager:
         Returns:
             int: ID du tirage sauvegardé ou None en cas d'échec
         """
+        last_exception = None
+        
+        # Gérer plusieurs formats de date de manière robuste
+        if isinstance(date_tirage, str):
+            try:
+                date_obj = datetime.strptime(date_tirage, '%d/%m/%Y').date()
+            except ValueError:
+                try:
+                    date_obj = datetime.strptime(date_tirage, '%Y-%m-%d').date()
+                except ValueError as ve:
+                    logger.error(f"Format de date non reconnu pour '{date_tirage}'. Utilisez 'DD/MM/YYYY' ou 'YYYY-MM-DD'.")
+                    return None
+        else:
+            date_obj = date_tirage
+        
         for attempt in range(self.max_retries):
             try:
-                # Gérer plusieurs formats de date de manière robuste
-                if isinstance(date_tirage, str):
-                    try:
-                        date_obj = datetime.strptime(date_tirage, '%d/%m/%Y').date()
-                    except ValueError:
-                        try:
-                            date_obj = datetime.strptime(date_tirage, '%Y-%m-%d').date()
-                        except ValueError as ve:
-                            logger.error(f"Format de date non reconnu pour '{date_tirage}'. Utilisez 'DD/MM/YYYY' ou 'YYYY-MM-DD'.")
-                            return None
-                else:
-                    date_obj = date_tirage
-
+                # Vérifier si une reconnexion est nécessaire
+                if self.last_connection_time is None or (datetime.now() - self.last_connection_time).total_seconds() > 3600:  # 1 heure
+                    logger.info("Nouvelle connexion nécessaire (délai écoulé)")
+                    self.reconnect_engine()
+                
                 with self.engine.connect() as conn:
                     # Début de la transaction
                     with conn.begin():
@@ -320,15 +365,28 @@ class PostgreSQLManager:
                         return tirage_id
                         
             except Exception as e:
-                if attempt == max_retries - 1:  # Dernière tentative
-                    logger.error(f"❌ Échec après {max_retries} tentatives de sauvegarde du tirage du {date_tirage}: {e}")
+                last_exception = e
+                if attempt == self.max_retries - 1:  # Dernière tentative
+                    logger.error(f"❌ Échec après {self.max_retries} tentatives de sauvegarde du tirage du {date_obj}")
+                    logger.error(f"Dernière erreur: {str(e)}")
                     return None
                 
+                # Tenter une reconnexion en cas d'erreur de connexion
+                if isinstance(e, (exc.OperationalError, exc.InterfaceError, exc.DatabaseError)):
+                    logger.warning(f"⚠️ Erreur de connexion détectée: {str(e)}")
+                    try:
+                        self.reconnect_engine()
+                    except Exception as reconnect_error:
+                        logger.error(f"❌ Échec de la reconnexion: {str(reconnect_error)}")
+                
                 # Attente exponentielle avant une nouvelle tentative
-                wait_time = (2 ** attempt) * 0.5
-                logger.warning(f"⚠️ Tentative {attempt + 1}/{max_retries} échouée. Nouvelle tentative dans {wait_time:.1f}s...")
+                wait_time = (2 ** attempt) * self.retry_delay
+                logger.warning(f"⚠️ Tentative {attempt + 1}/{self.max_retries} échouée. Nouvelle tentative dans {wait_time:.1f}s...")
                 time.sleep(wait_time)
         
+        logger.error(f"❌ Échec critique de sauvegarde du tirage après {self.max_retries} tentatives")
+        if last_exception:
+            logger.error(f"Dernière erreur: {str(last_exception)}")
         return None
 
     def get_all_tirages(self, limit=100):
