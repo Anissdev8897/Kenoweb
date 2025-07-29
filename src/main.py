@@ -1942,11 +1942,17 @@ def api_save_system_prediction():
 @app.route('/api/save_user_prediction', methods=['POST'])
 def api_save_user_prediction():
     try:
+        logger.info("Début de l'API save_user_prediction")
+        
         if not request.is_json:
+            logger.error("Erreur: Content-Type n'est pas application/json")
             return jsonify({'success': False, 'error': 'Content-Type doit être application/json'}), 400
             
         data = request.get_json()
+        logger.info(f"Données reçues: {data}")
+        
         if not data:
+            logger.error("Erreur: Aucune donnée JSON reçue")
             return jsonify({'success': False, 'error': 'Données JSON invalides'}), 400
             
         user_id = data.get('user_id', 'anonymous')
@@ -1954,40 +1960,67 @@ def api_save_user_prediction():
         numeros = data.get('numeros')
         confidence = data.get('confidence', 0.0)
         
+        logger.info(f"Paramètres extraits - user_id: {user_id}, method: {method}, numeros: {numeros}, confidence: {confidence}")
+        
         # Validation détaillée
         if not method:
+            logger.error("Erreur: Le champ method est manquant")
             return jsonify({'success': False, 'error': 'Le champ method est requis'}), 400
             
         if not isinstance(method, str) or not method.strip():
+            logger.error("Erreur: Le champ method n'est pas une chaîne valide")
             return jsonify({'success': False, 'error': 'Le champ method doit être une chaîne non vide'}), 400
             
         if numeros is None:
+            logger.error("Erreur: Le champ numeros est manquant")
             return jsonify({'success': False, 'error': 'Le champ numeros est requis'}), 400
             
         if not isinstance(numeros, list):
+            logger.error(f"Erreur: Le champ numeros n'est pas une liste (type: {type(numeros)})")
             return jsonify({'success': False, 'error': 'Le champ numeros doit être une liste'}), 400
             
-        if not all(isinstance(n, int) for n in numeros):
+        # Convertir les numéros en entiers si nécessaire
+        try:
+            numeros = [int(n) for n in numeros]
+        except (ValueError, TypeError) as e:
+            logger.error(f"Erreur de conversion des numéros: {e}")
             return jsonify({'success': False, 'error': 'Tous les numeros doivent être des entiers'}), 400
             
         if not all(1 <= n <= 70 for n in numeros):
+            logger.error(f"Erreur: Numéros en dehors de la plage valide: {numeros}")
             return jsonify({'success': False, 'error': 'Tous les numeros doivent être entre 1 et 70'}), 400
             
         if len(numeros) < 2 or len(numeros) > 10:
+            logger.error(f"Erreur: Nombre de numéros invalide: {len(numeros)}")
             return jsonify({'success': False, 'error': 'Le nombre de numeros doit être entre 2 et 10'}), 400
             
         if not isinstance(confidence, (int, float)) or confidence < 0 or confidence > 1:
+            logger.error(f"Erreur: Valeur de confiance invalide: {confidence}")
             return jsonify({'success': False, 'error': 'Le champ confidence doit être entre 0 et 1'}), 400
             
+        logger.info("Validation des données réussie, tentative de sauvegarde...")
         prediction_id = db_manager.save_prediction(user_id, method, numeros, confidence)
+        
         if prediction_id:
-            return jsonify({'success': True, 'id': prediction_id, 'message': 'Prédiction sauvegardée avec succès'})
+            logger.info(f"Prédiction sauvegardée avec succès, ID: {prediction_id}")
+            return jsonify({
+                'success': True, 
+                'id': prediction_id, 
+                'message': 'Prédiction sauvegardée avec succès'
+            })
         else:
-            return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde en base de données'}), 500
+            logger.error("Erreur lors de la sauvegarde en base de données")
+            return jsonify({
+                'success': False, 
+                'error': 'Erreur lors de la sauvegarde en base de données'
+            }), 500
             
     except Exception as e:
-        logger.error(f"Erreur API save_user_prediction: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        logger.error(f"Erreur inattendue dans api_save_user_prediction: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False, 
+            'error': f'Erreur serveur: {str(e)}'
+        }), 500
 
 @app.route('/chat')
 def chat_page():
