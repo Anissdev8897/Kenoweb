@@ -31,23 +31,20 @@ class PostgreSQLManager:
             raise ValueError("DATABASE_URL environment variable not set and no fallback URL provided.")
         
         self.engine = create_engine(self.database_url)
-        self._create_schema() # Renommée pour plus de clarté
+        self._create_schema()
 
     def _create_schema(self):
         """Crée les tables et les index de manière séquentielle et transactionnelle."""
         with self.engine.connect() as conn:
-            # Démarre une transaction explicite
             transaction = conn.begin()
             try:
                 # --- Étape 1: Création de toutes les tables ---
                 logger.info("Début de la création des tables...")
 
-                # Extensions
                 conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
                 conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"pgcrypto\""))
                 conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
 
-                # Table tirages
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS tirages (
                         id SERIAL PRIMARY KEY,
@@ -61,13 +58,13 @@ class PostgreSQLManager:
                     )
                 """))
 
-                # Table users (INCHANGÉE)
+                # Table users (MODIFIÉE pour enlever le hash)
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS users (
                         id SERIAL PRIMARY KEY,
                         username VARCHAR(50) UNIQUE NOT NULL,
                         email VARCHAR(255) UNIQUE,
-                        password_hash VARCHAR(255) NOT NULL,
+                        password VARCHAR(255) NOT NULL, -- Changement ici
                         is_admin BOOLEAN DEFAULT FALSE,
                         is_moderator BOOLEAN DEFAULT FALSE,
                         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -75,7 +72,6 @@ class PostgreSQLManager:
                     )
                 """))
 
-                # Table predictions
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS predictions (
                         id SERIAL PRIMARY KEY,
@@ -92,7 +88,6 @@ class PostgreSQLManager:
                     )
                 """))
 
-                # Table method_stats
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS method_stats (
                         id SERIAL PRIMARY KEY,
@@ -104,7 +99,6 @@ class PostgreSQLManager:
                     )
                 """))
 
-                # Table analysis_results
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS analysis_results (
                         id SERIAL PRIMARY KEY,
@@ -116,7 +110,6 @@ class PostgreSQLManager:
                     )
                 """))
 
-                # Table ml_models
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS ml_models (
                         id SERIAL PRIMARY KEY,
@@ -136,23 +129,14 @@ class PostgreSQLManager:
 
                 # --- Étape 2: Création de tous les index ---
                 logger.info("Début de la création des index...")
-
-                # Index pour tirages
                 conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_date ON tirages(date_tirage DESC)"))
                 conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_numeros ON tirages USING GIN(numeros)"))
-
-                # Index pour users
                 conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)"))
                 conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"))
-
-                # Index pour predictions
                 conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id)"))
                 conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_method ON predictions(method)"))
                 conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_created ON predictions(created_at DESC)"))
-
-                # Index pour analysis_results
                 conn.execute(text("CREATE INDEX IF NOT EXISTS idx_analysis_tirage ON analysis_results(tirage_id)"))
-                
                 logger.info("Index créés avec succès.")
 
                 # --- Étape 3: Insertion des données initiales ---
@@ -162,17 +146,55 @@ class PostgreSQLManager:
                     ON CONFLICT (method) DO NOTHING
                 """))
 
-                # Valide la transaction entière
                 transaction.commit()
                 logger.info("✅ Schéma de la base de données vérifié et mis à jour avec succès.")
 
             except Exception as e:
                 logger.error(f"❌ Erreur lors de la configuration du schéma : {e}")
-                # Annule toute la transaction en cas d'erreur
                 transaction.rollback()
                 logger.error("La transaction a été annulée (rollback).")
 
-    # ... (Le reste de vos fonctions reste ici) ...
+    # --- Fonctions pour les utilisateurs ---
+    def save_user(self, username, password, email=None):
+        """Sauvegarde un nouvel utilisateur avec un mot de passe en clair."""
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    INSERT INTO users (username, password, email)
+                    VALUES (:username, :password, :email)
+                    RETURNING id
+                """), {
+                    "username": username,
+                    "password": password, # Stockage direct
+                    "email": email
+                })
+                conn.commit()
+                user_id = result.fetchone()[0]
+                logger.info(f"✅ Utilisateur '{username}' sauvegardé avec succès (ID: {user_id}).")
+                return user_id
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la sauvegarde de l'utilisateur '{username}': {e}")
+            return None
+
+    def get_user_by_username(self, username):
+        """Récupère un utilisateur par son nom d'utilisateur."""
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT id, username, password, email, is_admin, is_moderator, created_at, last_active 
+                    FROM users 
+                    WHERE username = :username
+                """), {"username": username})
+                user = result.fetchone()
+                if user:
+                    # Retourne un dictionnaire pour un accès facile aux colonnes
+                    return dict(user._mapping)
+                return None
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la récupération de l'utilisateur '{username}': {e}")
+            return None
+
+    # ... (Le reste de vos fonctions : get_system_predictions, save_prediction, etc.) ...
     def get_system_predictions(self, limit=50):
         try:
             with self.engine.connect() as conn:
