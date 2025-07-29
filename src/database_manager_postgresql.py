@@ -60,24 +60,35 @@ class PostgreSQLManager:
                     )
                 """))
                 
-                # S'assurer que l'extension pg_trgm est activée pour les index GIN
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+                # S'assurer que les extensions nécessaires sont activées
+                try:
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+                    conn.commit()
+                except Exception as e:
+                    logger.warning(f"Impossible d'activer l'extension pg_trgm : {e}")
+                    conn.rollback()
                 
-                # Ajout des index pour les recherches fréquentes
-                conn.execute(text("""
+                # Création des index avec gestion d'erreur individuelle
+                def safe_create_index(conn, sql, index_name):
+                    try:
+                        conn.execute(text(sql))
+                        conn.commit()
+                        return True
+                    except Exception as e:
+                        logger.warning(f"Impossible de créer l'index {index_name} : {e}")
+                        conn.rollback()
+                        return False
+                
+                # Index pour la table tirages
+                safe_create_index(conn, """
                     CREATE INDEX IF NOT EXISTS idx_tirages_date 
                     ON tirages(date_tirage DESC)
-                """))
+                """, "idx_tirages_date")
                 
-                # Création de l'index GIN avec gestion d'erreur
-                try:
-                    conn.execute(text("""
-                        CREATE INDEX IF NOT EXISTS idx_tirages_numeros 
-                        ON tirages USING GIN(numeros)
-                    """))
-                except Exception as e:
-                    logger.warning(f"Impossible de créer l'index GIN : {e}")
-                    conn.rollback()
+                safe_create_index(conn, """
+                    CREATE INDEX IF NOT EXISTS idx_tirages_numeros 
+                    ON tirages USING GIN(numeros)
+                """, "idx_tirages_numeros")
                 
                 # Vérification et création de la table users si elle n'existe pas
                 conn.execute(text("""
