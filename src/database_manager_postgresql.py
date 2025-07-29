@@ -18,20 +18,27 @@ class PostgreSQLManager:
         self._create_tables()
     
     def _create_tables(self):
-        """Crée les tables nécessaires avec le nouveau schéma SQL corrigé"""
-        with self.engine.connect() as conn:
+            with self.engine.connect() as conn:
+            # Vérifie et ajoute les colonnes manquantes
             conn.execute(text("""
-                -- Extensions nécessaires
-                CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-                CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-                
-                -- Table principale des tirages
-                CREATE TABLE IF NOT EXISTS tirages (
-                    id SERIAL PRIMARY KEY,
-                    date_tirage DATE NOT NULL,
-                    numeros INTEGER[] NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                DO $$
+                BEGIN
+                    -- Vérifie et ajoute la colonne numeros si elle n'existe pas
+                    IF NOT EXISTS (
+                        SELECT 1 
+                        FROM information_schema.columns 
+                        WHERE table_name='tirages' AND column_name='numeros'
+                    ) THEN
+                        ALTER TABLE tirages ADD COLUMN numeros INTEGER[];
+                    END IF;
+                END $$;
+        """))
+        
+        # Continue avec le reste de ta création de tables...
+        conn.execute(text("""
+            -- Ton schéma SQL actuel ici
+            CREATE TABLE IF NOT EXISTS tirages (...);
+            -- etc.
                 );
                 
                 -- Index pour performance
