@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
