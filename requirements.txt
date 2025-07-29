@@ -5,8 +5,10 @@ wheel>=0.40.0
 # Core
 Flask==2.3.3
 Flask-CORS==4.0.0
-Flask-SQLAlchemy==3.0.5
 Flask-Login==0.6.3
+SQLAlchemy==2.0.31
+psycopg2-binary==2.9.10
+
 
 # Database
 psycopg2-binary==2.9.9
