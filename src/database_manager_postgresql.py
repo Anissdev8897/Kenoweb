@@ -34,127 +34,88 @@ class PostgreSQLManager:
         self._create_schema()
 
     def _create_schema(self):
-        """Crée les tables et les index de manière séquentielle et transactionnelle."""
-        with self.engine.connect() as conn:
-            transaction = conn.begin()
-            try:
-                # --- Étape 1: Création de toutes les tables ---
-                logger.info("Début de la création des tables...")
+        """Crée les tables et les index en utilisant des transactions séparées pour garantir la robustesse."""
+        try:
+            # --- ÉTAPE 1: CRÉATION DES TABLES DANS UNE TRANSACTION DÉDIÉE ---
+            with self.engine.connect() as conn:
+                with conn.begin(): # Démarre une transaction
+                    logger.info("Début de la création des tables...")
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"pgcrypto\""))
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
 
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"pgcrypto\""))
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+                    # Définitions des tables
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS tirages (
+                            id SERIAL PRIMARY KEY, date_tirage DATE NOT NULL UNIQUE, heure_tirage TIME,
+                            numeros INTEGER[] NOT NULL DEFAULT '{}'::INTEGER[], multiplicateur INTEGER, joker VARCHAR(20),
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )"""))
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS users (
+                            id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, email VARCHAR(255) UNIQUE,
+                            password VARCHAR(255) NOT NULL, is_admin BOOLEAN DEFAULT FALSE, is_moderator BOOLEAN DEFAULT FALSE,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )"""))
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS predictions (
+                            id SERIAL PRIMARY KEY, tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE, user_id VARCHAR(50) NOT NULL,
+                            method VARCHAR(100) NOT NULL, numeros INTEGER[] NOT NULL, session_id VARCHAR(255),
+                            confidence NUMERIC(5,4) DEFAULT 0.0, correct_count INTEGER DEFAULT 0, is_validated BOOLEAN DEFAULT FALSE,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )"""))
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS method_stats (
+                            id SERIAL PRIMARY KEY, method VARCHAR(100) UNIQUE NOT NULL, total_predictions INTEGER DEFAULT 0,
+                            correct_predictions INTEGER DEFAULT 0, accuracy FLOAT8 DEFAULT 0.0,
+                            last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )"""))
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS analysis_results (
+                            id SERIAL PRIMARY KEY, tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE,
+                            analysis_type VARCHAR(50) NOT NULL, result_data JSONB, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            UNIQUE(tirage_id, analysis_type)
+                        )"""))
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS ml_models (
+                            id SERIAL PRIMARY KEY, model_name VARCHAR(100) NOT NULL, model_type VARCHAR(50) NOT NULL,
+                            s3_path VARCHAR(500), training_score NUMERIC(10,8), test_score NUMERIC(10,8),
+                            r2_score NUMERIC(10,8), training_time_seconds INTEGER,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, trained_at TIMESTAMP WITH TIME ZONE
+                        )"""))
+                    logger.info("✅ Création des tables terminée et transaction validée.")
 
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS tirages (
-                        id SERIAL PRIMARY KEY,
-                        date_tirage DATE NOT NULL UNIQUE,
-                        heure_tirage TIME,
-                        numeros INTEGER[] NOT NULL DEFAULT '{}'::INTEGER[],
-                        multiplicateur INTEGER,
-                        joker VARCHAR(20),
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
+            # --- ÉTAPE 2: CRÉATION DES INDEX DANS UNE NOUVELLE TRANSACTION ---
+            with self.engine.connect() as conn:
+                with conn.begin(): # Démarre une nouvelle transaction
+                    logger.info("Début de la création des index...")
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_date ON tirages(date_tirage DESC)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_numeros ON tirages USING GIN(numeros)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_method ON predictions(method)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_created ON predictions(created_at DESC)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_analysis_tirage ON analysis_results(tirage_id)"))
+                    logger.info("✅ Création des index terminée et transaction validée.")
 
-                # Table users (MODIFIÉE pour enlever le hash)
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS users (
-                        id SERIAL PRIMARY KEY,
-                        username VARCHAR(50) UNIQUE NOT NULL,
-                        email VARCHAR(255) UNIQUE,
-                        password VARCHAR(255) NOT NULL, -- Changement ici
-                        is_admin BOOLEAN DEFAULT FALSE,
-                        is_moderator BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
+            # --- ÉTAPE 3: INSERTION DES DONNÉES INITIALES ---
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    conn.execute(text("""
+                        INSERT INTO method_stats (method)
+                        VALUES ('frequency_analysis'), ('monte_carlo'), ('ml_prediction')
+                        ON CONFLICT (method) DO NOTHING
+                    """))
+                    logger.info("✅ Données initiales insérées.")
+            
+            logger.info("🎉 Schéma de la base de données configuré avec succès.")
 
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS predictions (
-                        id SERIAL PRIMARY KEY,
-                        tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE,
-                        user_id VARCHAR(50) NOT NULL,
-                        method VARCHAR(100) NOT NULL,
-                        numeros INTEGER[] NOT NULL,
-                        session_id VARCHAR(255),
-                        confidence NUMERIC(5,4) DEFAULT 0.0,
-                        correct_count INTEGER DEFAULT 0,
-                        is_validated BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
+        except Exception as e:
+            logger.error(f"❌ Une erreur critique est survenue lors de la configuration du schéma : {e}")
+            # Pas besoin de rollback explicite ici car le `with conn.begin()` le gère en cas d'exception
 
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS method_stats (
-                        id SERIAL PRIMARY KEY,
-                        method VARCHAR(100) UNIQUE NOT NULL,
-                        total_predictions INTEGER DEFAULT 0,
-                        correct_predictions INTEGER DEFAULT 0,
-                        accuracy FLOAT8 DEFAULT 0.0,
-                        last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
-
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS analysis_results (
-                        id SERIAL PRIMARY KEY,
-                        tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE,
-                        analysis_type VARCHAR(50) NOT NULL,
-                        result_data JSONB,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        UNIQUE(tirage_id, analysis_type)
-                    )
-                """))
-
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS ml_models (
-                        id SERIAL PRIMARY KEY,
-                        model_name VARCHAR(100) NOT NULL,
-                        model_type VARCHAR(50) NOT NULL,
-                        s3_path VARCHAR(500),
-                        training_score NUMERIC(10,8),
-                        test_score NUMERIC(10,8),
-                        r2_score NUMERIC(10,8),
-                        training_time_seconds INTEGER,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        trained_at TIMESTAMP WITH TIME ZONE
-                    )
-                """))
-                
-                logger.info("Tables créées avec succès.")
-
-                # --- Étape 2: Création de tous les index ---
-                logger.info("Début de la création des index...")
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_date ON tirages(date_tirage DESC)"))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_numeros ON tirages USING GIN(numeros)"))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)"))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id)"))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_method ON predictions(method)"))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_created ON predictions(created_at DESC)"))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_analysis_tirage ON analysis_results(tirage_id)"))
-                logger.info("Index créés avec succès.")
-
-                # --- Étape 3: Insertion des données initiales ---
-                conn.execute(text("""
-                    INSERT INTO method_stats (method)
-                    VALUES ('frequency_analysis'), ('monte_carlo'), ('ml_prediction')
-                    ON CONFLICT (method) DO NOTHING
-                """))
-
-                transaction.commit()
-                logger.info("✅ Schéma de la base de données vérifié et mis à jour avec succès.")
-
-            except Exception as e:
-                logger.error(f"❌ Erreur lors de la configuration du schéma : {e}")
-                transaction.rollback()
-                logger.error("La transaction a été annulée (rollback).")
-
-    # --- Fonctions pour les utilisateurs ---
+    # ... (Le reste de vos fonctions reste ici, inchangé) ...
     def save_user(self, username, password, email=None):
         """Sauvegarde un nouvel utilisateur avec un mot de passe en clair."""
         try:
@@ -193,8 +154,6 @@ class PostgreSQLManager:
         except Exception as e:
             logger.error(f"❌ Erreur lors de la récupération de l'utilisateur '{username}': {e}")
             return None
-
-    # ... (Le reste de vos fonctions : get_system_predictions, save_prediction, etc.) ...
     def get_system_predictions(self, limit=50):
         try:
             with self.engine.connect() as conn:
