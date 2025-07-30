@@ -351,11 +351,27 @@ except Exception as e:
 
 # Vérifier le contexte d'exécution de Flask
 logger.info("=== CONTEXTE FLASK ===")
-logger.info(f"FLASK_APP: {os.environ.get('FLASK_APP')}")
-logger.info(f"FLASK_ENV: {os.environ.get('FLASK_ENV')}")
+logger.info(f"FLASK_APP: {os.environ.get('FLASK_APP', 'Non défini')}")
+logger.info(f"FLASK_ENV: {os.environ.get('FLASK_ENV', 'Non défini')}")
+logger.info(f"RENDER: {'OUI' if IS_RENDER else 'NON'}")
 logger.info(f"Application root_path: {app.root_path}")
 logger.info(f"Application template_folder: {app.template_folder}")
-logger.info(f"Jinja loader searchpath: {app.jinja_loader.searchpath}")
+
+# Affichage des chemins de recherche des templates
+try:
+    if hasattr(app.jinja_loader, 'get_source'):
+        logger.info("Jinja loader: FileSystemLoader")
+        if hasattr(app.jinja_loader, 'searchpath'):
+            logger.info(f"Search paths: {app.jinja_loader.searchpath}")
+    elif hasattr(app.jinja_loader, 'loaders'):
+        logger.info(f"Jinja loader: ChoiceLoader avec {len(app.jinja_loader.loaders)} chargeurs")
+        for i, loader in enumerate(app.jinja_loader.loaders, 1):
+            if hasattr(loader, 'searchpath'):
+                logger.info(f"  Chargeur {i} - Search path: {loader.searchpath}")
+            else:
+                logger.info(f"  Chargeur {i} - Type: {type(loader).__name__}")
+except Exception as e:
+    logger.warning(f"Impossible d'afficher les chemins de recherche des templates: {e}")
 
 # Tester le chargement d'un template simple
 try:
@@ -386,24 +402,55 @@ try:
 except Exception as e:
     logger.error(f"Erreur d'accès au fichier forgot_password.html: {e}")
 
-# Ajout du répertoire des templates au chemin de recherche Python
-if TEMPLATES_DIR not in app.jinja_loader.searchpath:
-    app.jinja_loader.searchpath.append(TEMPLATES_DIR)
-    logger.info(f"Ajout du répertoire des templates au chemin de recherche: {TEMPLATES_DIR}")
-
-logger.info(f"Chemins de recherche des templates: {app.jinja_loader.searchpath}")
-
-# Vérification du chargement du template
+# Affichage des chemins de recherche des templates
 try:
-    template = app.jinja_env.get_template('forgot_password.html')
-    logger.info("Le template forgot_password.html a été chargé avec succès")
+    logger.info("=== VERIFICATION DES TEMPLATES ===")
+    
+    # Afficher les informations du chargeur Jinja
+    if hasattr(app.jinja_loader, 'get_source'):
+        logger.info("Jinja loader: FileSystemLoader")
+        if hasattr(app.jinja_loader, 'searchpath'):
+            logger.info(f"Search paths: {app.jinja_loader.searchpath}")
+    elif hasattr(app.jinja_loader, 'loaders'):
+        logger.info(f"Jinja loader: ChoiceLoader avec {len(app.jinja_loader.loaders)} chargeurs")
+        for i, loader in enumerate(app.jinja_loader.loaders, 1):
+            if hasattr(loader, 'searchpath'):
+                logger.info(f"  Chargeur {i} - Search path: {loader.searchpath}")
+            else:
+                logger.info(f"  Chargeur {i} - Type: {type(loader).__name__}")
+    
+    # Vérifier l'accès au template forgot_password.html
+    possible_paths = [
+        os.path.join(TEMPLATES_DIR, 'forgot_password.html'),
+        os.path.join(BASE_DIR, 'templates', 'forgot_password.html'),
+        'templates/forgot_password.html',
+        'forgot_password.html'
+    ]
+    
+    found = False
+    for path in possible_paths:
+        if os.path.exists(path):
+            logger.info(f"✅ Template trouvé: {os.path.abspath(path)}")
+            found = True
+            break
+    
+    if not found:
+        logger.warning("⚠️  Aucune version du template 'forgot_password.html' n'a été trouvée")
+        logger.warning("Emplacements vérifiés:")
+        for path in possible_paths:
+            abs_path = os.path.abspath(path) if path.startswith('/') else os.path.join(os.getcwd(), path)
+            logger.warning(f"- {abs_path}")
+    
+    # Essayer de charger le template via Jinja
+    try:
+        template = app.jinja_env.get_template('forgot_password.html')
+        logger.info("✅ Le template a été chargé avec succès via Jinja")
+    except Exception as jinja_error:
+        logger.error(f"❌ Erreur lors du chargement du template via Jinja: {str(jinja_error)}")
+        
 except Exception as e:
-    logger.error(f"Erreur lors du chargement du template forgot_password.html: {e}")
-    logger.error(f"Détails de l'erreur: {str(e)}", exc_info=True)
-
-# S'assurer que les répertoires existent
-for directory in [STATIC_DIR, TEMPLATES_DIR, DATA_DIR, MODELS_DIR]:
-    os.makedirs(directory, exist_ok=True)
+    logger.error(f"❌ ERREUR lors de la vérification des templates: {str(e)}")
+    logger.error("Détails de l'erreur:", exc_info=True)
 
 # Enregistrer les routes directement dans l'application principale
 
