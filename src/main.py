@@ -27,7 +27,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import stat
-
+from database_manager_postgresql import PostgreSQLManager
 # Importer les fonctions d'authentification
 from auth_system import AuthSystem
 
