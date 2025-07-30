@@ -12,6 +12,10 @@ import logging
 import time
 import schedule
 from datetime import datetime, timedelta
+
+# DON'T CHANGE THIS !!!
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 from flask import Flask, render_template, request, jsonify, send_from_directory, session, redirect, url_for, flash
 from functools import wraps
 from flask_cors import CORS
@@ -23,6 +27,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import stat
+
 # Importer les fonctions d'authentification
 from auth_system import AuthSystem
 
@@ -34,12 +39,6 @@ try:
     from keno_ecarts_analysis import KenoEcartsAnalyzer
     from keno_temporal_analysis import KenoTemporalAnalyzer
     from keno_monte_carlo_analysis import KenoMonteCarloAnalyzer
-    from keno_fibonacci_weighting import KenoFibonacciWeighting
-    from keno_backtesting import KenoBacktester
-    from keno_cycle_analysis import KenoCycleAnalyzer
-    from keno_frequency_analysis import KenoFrequencyAnalyzer
-    from keno_optimizer import KenoOptimizer
-    
     SPECIALIZED_MODULES_AVAILABLE = True
 except ImportError as e:
     logging.warning(f"Modules spécialisés non disponibles: {e}")
