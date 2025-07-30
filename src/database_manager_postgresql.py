@@ -544,4 +544,34 @@ class PostgreSQLManager:
         except Exception as e:
             logger.error(f"❌ Erreur récupération prédictions utilisateur: {e}")
             return []
+            
+    def get_user_by_email(self, email: str) -> dict:
+        """
+        Récupère un utilisateur par son adresse email.
+        
+        Args:
+            email (str): L'adresse email de l'utilisateur à rechercher
+            
+        Returns:
+            dict: Les informations de l'utilisateur ou None si non trouvé
+        """
+        try:
+            with self.engine.connect() as connection:
+                result = connection.execute(
+                    text("""
+                        SELECT id, username, email, password, is_active, is_admin, is_moderator,
+                               created_at, updated_at
+                        FROM users 
+                        WHERE email = :email
+                    """),
+                    {'email': email}
+                ).fetchone()
+                
+                if result:
+                    return dict(result._mapping)
+                return None
+                
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération de l'utilisateur par email: {e}")
+            raise
 
