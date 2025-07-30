@@ -8,6 +8,7 @@ import os
 import json
 import logging
 from datetime import datetime
+import joblib
 import sqlalchemy
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -26,28 +27,26 @@ class MLModelSaver:
         
     def save_model_with_weights(self, model_data):
         """
-        Sauvegarde un modèle ML avec ses poids dans la table ml_models
+        Sauvegarde un modèle ML avec ses données binaires dans la table ml_models
         
         Args:
-            model_data (dict): Données du modèle incluant les poids
+            model_data (dict): Données du modèle incluant le modèle binaire
             
         Returns:
             bool: True si la sauvegarde a réussi
         """
         try:
-            logger.info("💾 Sauvegarde du modèle ML avec poids...")
+            logger.info("💾 Sauvegarde du modèle ML binaire...")
             
             # Préparer les données du modèle
             model_record = {
                 'model_name': model_data.get('model_name', 'enhanced_ml_model'),
                 'model_type': model_data.get('model_type', 'random_forest'),
-                'parameters': json.dumps(model_data.get('parameters', {})),
-                'weights': json.dumps(model_data.get('weights', {})),
+                'model_binary': model_data.get('model_binary'), # MODIFICATION AJOUTÉE
                 'training_score': model_data.get('training_score', 0.0),
                 'test_score': model_data.get('test_score', 0.0),
                 'r2_score': model_data.get('r2_score', 0.0),
                 'training_time_seconds': model_data.get('training_time_seconds', 0),
-                'is_active': model_data.get('is_active', True),
                 'trained_at': datetime.now()
             }
             
@@ -55,11 +54,10 @@ class MLModelSaver:
             with self.engine.connect() as conn:
                 result = conn.execute(sqlalchemy.text('''
                     INSERT INTO ml_models 
-                    (model_name, model_type, parameters, weights, training_score, test_score, r2_score, training_time_seconds, is_active, trained_at, created_at)
-                    VALUES (:model_name, :model_type, :parameters, :weights, :training_score, :test_score, :r2_score, :training_time_seconds, :is_active, :trained_at, CURRENT_TIMESTAMP)
+                    (model_name, model_type, model_binary, training_score, test_score, r2_score, training_time_seconds, trained_at, created_at)
+                    VALUES (:model_name, :model_type, :model_binary, :training_score, :test_score, :r2_score, :training_time_seconds, :trained_at, CURRENT_TIMESTAMP)
                     RETURNING id
-                '''), model_record)
-                
+                '''), model_record)                
                 model_id = result.scalar()
                 
             logger.info(f"✅ Modèle sauvegardé avec succès (ID: {model_id})")
@@ -69,46 +67,46 @@ class MLModelSaver:
             logger.error(f"❌ Erreur sauvegarde modèle: {e}")
             return False
     
-    def get_model_weights(self, model_id):
+    def load_model_binary(self, model_id):
         """
-        Récupère les poids d'un modèle depuis la base
+        Récupère le modèle binaire depuis la base et le désérialise
         
         Args:
             model_id (int): ID du modèle
             
         Returns:
-            dict: Poids du modèle ou None si erreur
+            object: Le modèle désérialisé ou None si erreur
         """
         try:
             with self.engine.connect() as conn:
-                result = conn.execute(sqlalchemy.text('''
-                    SELECT weights FROM ml_models WHERE id = :model_id
-                '''), {'model_id': model_id})
+                result = conn.execute(sqlalchemy.text(
+                    'SELECT model_binary FROM ml_models WHERE id = :model_id'
+                ), {'model_id': model_id})
                 
                 row = result.fetchone()
                 if row and row[0]:
-                    return json.loads(row[0])
+                    return joblib.loads(row[0]) # MODIFICATION AJOUTÉE: Désérialiser le binaire
                 return None
                 
         except Exception as e:
-            logger.error(f"❌ Erreur récupération poids: {e}")
+            logger.error(f"❌ Erreur récupération modèle binaire: {e}")
             return None
     
     def get_active_models(self):
         """
-        Récupère tous les modèles actifs avec leurs poids
+        Récupère tous les modèles actifs avec leurs binaires
         
         Returns:
             list: Liste des modèles actifs
         """
         try:
             with self.engine.connect() as conn:
-                result = conn.execute(sqlalchemy.text('''
-                    SELECT id, model_name, model_type, weights, training_score, test_score, r2_score, trained_at
+                result = conn.execute(sqlalchemy.text("""
+                    SELECT id, model_name, model_type, model_binary, training_score, test_score, r2_score, trained_at
                     FROM ml_models 
                     WHERE is_active = TRUE
                     ORDER BY trained_at DESC
-                '''))
+                """))
                 
                 models = []
                 for row in result:
@@ -116,7 +114,7 @@ class MLModelSaver:
                         'id': row[0],
                         'model_name': row[1],
                         'model_type': row[2],
-                        'weights': json.loads(row[3]) if row[3] else {},
+                        'model_binary': joblib.loads(row[3]) if row[3] else None, # MODIFICATION AJOUTÉE
                         'training_score': row[4],
                         'test_score': row[5],
                         'r2_score': row[6],

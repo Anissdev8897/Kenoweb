@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlalchemy import create_engine, text, exc
 from sqlalchemy.exc import OperationalError, InterfaceError, DatabaseError
 import pandas as pd
+from src.database_manager_postgresql import PostgreSQLManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -213,7 +214,7 @@ class PostgreSQLManager:
                             id SERIAL PRIMARY KEY,
                             model_name VARCHAR(100) NOT NULL,
                             model_type VARCHAR(50) NOT NULL,
-                            s3_path VARCHAR(500), -- Changement ici: s3_path au lieu de weights
+                            model_binary BYTEA, -- MODIFICATION AJOUTÉE: Stocke le modèle binaire
                             training_score NUMERIC(10,8),
                             test_score NUMERIC(10,8),
                             r2_score NUMERIC(10,8),

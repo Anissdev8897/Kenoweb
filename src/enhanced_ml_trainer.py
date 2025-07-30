@@ -18,7 +18,6 @@ from datetime import datetime, timedelta
 import os
 import json
 from enhanced_database_manager import EnhancedDatabaseManagerV2
-from enhanced_s3_manager import EnhancedS3StorageManager
 
 logger = logging.getLogger(__name__)
 database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92")
@@ -27,7 +26,6 @@ database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoft
 class EnhancedMLTrainerV2:
     def __init__(self):
         self.db_manager = EnhancedDatabaseManagerV2()
-        self.s3_manager = EnhancedS3StorageManager()
         self.models = {}
         self.scalers = {}
         self.training_history = []
@@ -177,24 +175,9 @@ class EnhancedMLTrainerV2:
                 # Cross-validation
                 cv_scores = cross_val_score(model, X_train_scaled, y_train_adapted, cv=5)
                 
-                # Sauvegarder le modèle et le scaler
-                model_filename = f"keno_model_{model_key}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.joblib"
-                scaler_filename = f"keno_scaler_{model_key}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.joblib"
-                
-                # Sauvegarder localement temporairement
-                temp_model_path = f"/tmp/{model_filename}"
-                temp_scaler_path = f"/tmp/{scaler_filename}"
-                
-                joblib.dump(model, temp_model_path)
-                joblib.dump(scaler, temp_scaler_path)
-                
-                # Uploader vers S3
-                s3_model_path = self.s3_manager.upload_model(temp_model_path, model_filename)
-                s3_scaler_path = self.s3_manager.upload_model(temp_scaler_path, scaler_filename)
-                
-                # Nettoyer les fichiers temporaires
-                os.remove(temp_model_path)
-                os.remove(temp_scaler_path)
+                # Sauvegarder le modèle et le scaler en binaire
+                model_binary = joblib.dumps(model)
+                scaler_binary = joblib.dumps(scaler)
                 
                 # Métriques d'entraînement
                 training_metrics = {
@@ -214,24 +197,24 @@ class EnhancedMLTrainerV2:
                 with self.db_manager.engine.connect() as conn:
                     conn.execute(self.db_manager.engine.text("""
                         INSERT INTO ml_models (
-                            model_name, model_type, method_name, s3_path,
+                            model_name, model_type, method_name, model_binary,
                             training_score, test_score, r2_score, trained_at, is_active, metadata
                         ) VALUES (
-                            :model_name, :model_type, :method_name, :s3_path,
+                            :model_name, :model_type, :method_name, :model_binary,
                             :training_score, :test_score, :r2_score, :trained_at, :is_active, :metadata
                         )
                     """), {
                         "model_name": model_key,
                         "model_type": config['type'],
                         "method_name": config['name'],
-                        "s3_path": s3_model_path,
+                        "model_binary": model_binary, # MODIFICATION AJOUTÉE
                         "training_score": train_score,
                         "test_score": test_score,
                         "r2_score": r2,
                         "trained_at": training_start,
                         "is_active": True,
                         "metadata": json.dumps({
-                            'scaler_path': s3_scaler_path,
+                            'scaler_binary': scaler_binary.decode('latin1'), # Encodage pour JSONB
                             'training_metrics': training_metrics
                         })
                     })
@@ -269,8 +252,8 @@ class EnhancedMLTrainerV2:
     def predict_next_numbers(self, model_key, num_numbers=8, target_date=None):
         """Générer des prédictions pour le prochain tirage."""
         if model_key not in self.models:
-            # Charger le modèle depuis S3 si nécessaire
-            self.load_model_from_s3(model_key)
+            # Charger le modèle depuis la base de données si nécessaire
+            self.load_model_from_db(model_key)
         
         if model_key not in self.models:
             raise ValueError(f"Modèle {model_key} non disponible")
@@ -353,6 +336,33 @@ class EnhancedMLTrainerV2:
             'method_name': method_name,
             'model_key': model_key
         }
+
+    def load_model_from_db(self, model_key):
+        """
+        Charge un modèle et son scaler depuis la base de données.
+        """
+        try:
+            with self.db_manager.engine.connect() as conn:
+                result = conn.execute(self.db_manager.engine.text("""
+                    SELECT model_binary, metadata FROM ml_models
+                    WHERE model_name = :model_key AND is_active = TRUE
+                    ORDER BY trained_at DESC
+                    LIMIT 1
+                """), {"model_key": model_key})
+                
+                row = result.fetchone()
+                if row:
+                    model_binary = row[0]
+                    metadata = json.loads(row[1])
+                    scaler_binary = metadata.get("scaler_binary").encode("latin1") # Ré-encoder
+                    
+                    self.models[model_key] = joblib.loads(model_binary)
+                    self.scalers[model_key] = joblib.loads(scaler_binary)
+                    logger.info(f"Modèle {model_key} et scaler chargés depuis la base de données.")
+                else:
+                    logger.warning(f"Aucun modèle actif trouvé pour {model_key} dans la base de données.")
+        except Exception as e:
+            logger.error(f"Erreur lors du chargement du modèle {model_key} depuis la base de données: {str(e)}")
 
     def _convert_prediction_to_numbers(self, prediction, freq_features, gap_features, num_numbers):
         """Convertir la prédiction numérique en numéros de Keno."""

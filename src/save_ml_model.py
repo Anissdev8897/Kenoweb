@@ -29,7 +29,7 @@ def create_table_and_insert_model():
                     id SERIAL PRIMARY KEY,
                     model_name VARCHAR(100) NOT NULL,
                     model_type VARCHAR(50) NOT NULL,
-                    s3_path VARCHAR(500),
+                    model_binary BYTEA, -- MODIFICATION AJOUTÉE: Stocke le modèle binaire
                     training_score NUMERIC(10,8),
                     test_score NUMERIC(10,8),
                     r2_score NUMERIC(10,8),
@@ -43,10 +43,13 @@ def create_table_and_insert_model():
             print("✅ Table ml_models créée ou déjà existante.")
 
             # Insérer le modèle KenoPredictorV1
+            # MODIFICATION AJOUTÉE: Placeholder pour le modèle binaire
+            dummy_model_binary = b'\x00\x01\x02\x03' # Exemple de données binaires
+
             model_data = {
                 'model_name': 'KenoPredictorV1',
                 'model_type': 'RandomForestClassifier',
-                's3_path': 's3://keno-models/KenoPredictorV1_20250728.pkl',
+                'model_binary': dummy_model_binary, # MODIFICATION AJOUTÉE
                 'training_score': 0.85678912,
                 'test_score': 0.82345678,
                 'r2_score': 0.78901234,
@@ -57,10 +60,9 @@ def create_table_and_insert_model():
             }
 
             connection.execute(text("""
-                INSERT INTO ml_models (model_name, model_type, s3_path, training_score, test_score, r2_score, training_time_seconds, trained_at, is_active, metadata)
-                VALUES (:model_name, :model_type, :s3_path, :training_score, :test_score, :r2_score, :training_time_seconds, :trained_at, :is_active, :metadata)
-            """), model_data)
-            connection.commit()
+                INSERT INTO ml_models (model_name, model_type, model_binary, training_score, test_score, r2_score, training_time_seconds, trained_at, is_active, metadata)
+                VALUES (:model_name, :model_type, :model_binary, :training_score, :test_score, :r2_score, :training_time_seconds, :trained_at, :is_active, :metadata)
+            """), model_data)            connection.commit()
             print("✅ Modèle KenoPredictorV1 inséré avec succès dans la table ml_models.")
             print(f"   - Model: {model_data['model_name']}")
             print(f"   - Type: {model_data['model_type']}")
