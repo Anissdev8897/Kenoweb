@@ -253,7 +253,7 @@ MODELS_DIR = os.path.join(BASE_DIR, 'models')
 # Configuration de l'application Flask
 app = Flask(__name__, 
             static_folder=STATIC_DIR, 
-            template_folder=TEMPLATES_DIR)
+            template_folder=None)  # On ne définit pas de template_folder par défaut
             
 app.secret_key = 'votre-secret-key-tres-secrete-changez-cette-valeur'
 CORS(app)
@@ -262,8 +262,17 @@ CORS(app)
 app.config['EXPLAIN_TEMPLATE_LOADING'] = True
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
-# Configuration des chemins de recherche des templates
-app.template_folder = TEMPLATES_DIR
+# Configuration personnalisée du chargeur de templates
+from jinja2 import FileSystemLoader, ChoiceLoader
+
+# Créer un chargeur qui cherche dans les deux répertoires
+template_loader = ChoiceLoader([
+    FileSystemLoader(TEMPLATES_DIR),  # src/templates d'abord
+    FileSystemLoader(os.path.join(BASE_DIR, 'templates'))  # Puis templates/ à la racine
+])
+
+# Appliquer le chargeur personnalisé
+app.jinja_loader = template_loader
 
 # Vérification complète du contexte d'exécution
 logger.info("=== VÉRIFICATION DU CONTEXTE D'EXÉCUTION ===")
