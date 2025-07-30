@@ -241,38 +241,60 @@ class KenoWebScraper:
             logger.error(f"Erreur lors du scraping: {e}")
             return []
 
-# Configuration des chemins
+# Configuration des chemins - Compatible Render
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, 'static')
-# Mise à jour du chemin des templates pour pointer vers src/templates
-TEMPLATES_DIR = os.path.join(SRC_DIR, 'templates')
-DATA_DIR = os.path.join(BASE_DIR, 'data')
-MODELS_DIR = os.path.join(BASE_DIR, 'models')
+
+# Détection de l'environnement Render
+IS_RENDER = os.environ.get('RENDER', '').lower() == 'true'
+
+# Configuration des chemins en fonction de l'environnement
+if IS_RENDER:
+    # Sur Render, les fichiers statiques et templates sont dans le même répertoire
+    STATIC_DIR = 'static'
+    TEMPLATES_DIR = 'templates'
+    DATA_DIR = os.path.join('data')
+    MODELS_DIR = os.path.join('models')
+else:
+    # En développement local
+    STATIC_DIR = os.path.join(BASE_DIR, 'static')
+    TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
+    DATA_DIR = os.path.join(BASE_DIR, 'data')
+    MODELS_DIR = os.path.join(BASE_DIR, 'models')
+
+# Création des répertoires s'ils n'existent pas
+for directory in [STATIC_DIR, TEMPLATES_DIR, DATA_DIR, MODELS_DIR]:
+    if directory and not os.path.exists(directory):
+        os.makedirs(directory, exist_ok=True)
 
 # Configuration de l'application Flask
 app = Flask(__name__, 
             static_folder=STATIC_DIR, 
-            template_folder=None)  # On ne définit pas de template_folder par défaut
-            
-app.secret_key = 'votre-secret-key-tres-secrete-changez-cette-valeur'
+            template_folder=TEMPLATES_DIR if not IS_RENDER else None)
+
+# Configuration de la clé secrète pour la session
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'clé-par-défaut-pour-le-développement')
 CORS(app)
 
-# Configuration du débogage des templates
-app.config['EXPLAIN_TEMPLATE_LOADING'] = True
-app.config['TEMPLATES_AUTO_RELOAD'] = True
+# Configuration du débogage en fonction de l'environnement
+app.config['EXPLAIN_TEMPLATE_LOADING'] = not IS_RENDER
+app.config['TEMPLATES_AUTO_RELOAD'] = not IS_RENDER
 
-# Configuration personnalisée du chargeur de templates
-from jinja2 import FileSystemLoader, ChoiceLoader
-
-# Créer un chargeur qui cherche dans les deux répertoires
-template_loader = ChoiceLoader([
-    FileSystemLoader(TEMPLATES_DIR),  # src/templates d'abord
-    FileSystemLoader(os.path.join(BASE_DIR, 'templates'))  # Puis templates/ à la racine
-])
-
-# Appliquer le chargeur personnalisé
-app.jinja_loader = template_loader
+# Configuration du chargeur de templates pour Render
+if IS_RENDER:
+    from jinja2 import FileSystemLoader, ChoiceLoader
+    
+    # Sur Render, on cherche d'abord dans le dossier templates local, puis à la racine
+    app.jinja_loader = ChoiceLoader([
+        FileSystemLoader('templates'),
+        FileSystemLoader(os.path.join(BASE_DIR, 'templates'))
+    ])
+    
+    # Configuration pour le serveur de production
+    app.config['PREFERRED_URL_SCHEME'] = os.environ.get('PREFERRED_URL_SCHEME', 'https')
+    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', True)
+    app.config['SESSION_COOKIE_HTTPONLY'] = os.environ.get('SESSION_COOKIE_HTTPONLY', True)
+    app.config['SESSION_COOKIE_SAMESITE'] = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
 
 # Vérification complète du contexte d'exécution
 logger.info("=== VÉRIFICATION DU CONTEXTE D'EXÉCUTION ===")
