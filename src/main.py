@@ -38,6 +38,12 @@ try:
     from keno_ecarts_analysis import KenoEcartsAnalyzer
     from keno_temporal_analysis import KenoTemporalAnalyzer
     from keno_monte_carlo_analysis import KenoMonteCarloAnalyzer
+    from keno_fibonacci_weighting import KenoFibonacciWeighting
+    from keno_backtesting import KenoBacktester
+    from keno_cycle_analysis import KenoCycleAnalyzer
+    from keno_frequency_analysis import KenoFrequencyAnalyzer
+    from keno_optimizer import KenoOptimizer
+    
     SPECIALIZED_MODULES_AVAILABLE = True
 except ImportError as e:
     logging.warning(f"Modules spécialisés non disponibles: {e}")
