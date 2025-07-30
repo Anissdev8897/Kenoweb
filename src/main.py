@@ -279,8 +279,9 @@ logger.info("=== VÉRIFICATION DU CONTEXTE D'EXÉCUTION ===")
 logger.info(f"Dossier de travail actuel: {os.getcwd()}")
 logger.info(f"Chemin du script: {__file__}")
 logger.info(f"Dossier du script: {os.path.dirname(__file__)}")
-logger.info(f"Dossier des templates: {app.template_folder}")
-logger.info(f"Chemin complet du template: {os.path.join(app.template_folder, 'forgot_password.html')}")
+logger.info("Dossiers de templates configurés:")
+logger.info(f"1. {TEMPLATES_DIR}")
+logger.info(f"2. {os.path.join(BASE_DIR, 'templates')}")
 
 # Vérification de l'accès au dossier des templates
 try:
