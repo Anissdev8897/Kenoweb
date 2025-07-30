@@ -6,7 +6,6 @@ from datetime import datetime
 from sqlalchemy import create_engine, text, exc
 from sqlalchemy.exc import OperationalError, InterfaceError, DatabaseError
 import pandas as pd
-from src.database_manager_postgresql import PostgreSQLManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
