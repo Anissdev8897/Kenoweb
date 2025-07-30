@@ -9,7 +9,7 @@ from database_manager_postgresql import PostgreSQLManager
 
 class TwoFactorAuth:
     def __init__(self):
-        self.sg = SendGridAPIClient(os.environ.get("SENDGRID_API_KEY"))
+        self.sg = SendGridAPIClient(os.environ.get("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"))
         self.db = PostgreSQLManager()  # Création directe d'une instance
         self.token_expiry_minutes = 15
 
