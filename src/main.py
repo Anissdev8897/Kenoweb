@@ -245,7 +245,8 @@ class KenoWebScraper:
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
-TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
+# Mise à jour du chemin des templates pour pointer vers src/templates
+TEMPLATES_DIR = os.path.join(SRC_DIR, 'templates')
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 MODELS_DIR = os.path.join(BASE_DIR, 'models')
 
