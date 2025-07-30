@@ -268,9 +268,15 @@ for directory in [STATIC_DIR, TEMPLATES_DIR, DATA_DIR, MODELS_DIR]:
         os.makedirs(directory, exist_ok=True)
 
 # Configuration de l'application Flask
-app = Flask(__name__, 
-            static_folder=STATIC_DIR, 
-            template_folder=TEMPLATES_DIR if not IS_RENDER else None)
+# Sur Render, on utilise le répertoire de travail courant pour les templates
+if IS_RENDER:
+    app = Flask(__name__,
+                static_folder='static',
+                template_folder='templates')
+else:
+    app = Flask(__name__,
+                static_folder=STATIC_DIR,
+                template_folder=TEMPLATES_DIR)
 
 # Configuration de la clé secrète pour la session
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'clé-par-défaut-pour-le-développement')
@@ -280,21 +286,34 @@ CORS(app)
 app.config['EXPLAIN_TEMPLATE_LOADING'] = not IS_RENDER
 app.config['TEMPLATES_AUTO_RELOAD'] = not IS_RENDER
 
-# Configuration du chargeur de templates pour Render
+# Configuration du chargeur de templates
+from jinja2 import FileSystemLoader, ChoiceLoader, PackageLoader
+
+# Configuration des chemins de recherche des templates
+template_paths = [
+    os.path.join(BASE_DIR, 'templates'),  # Chemin pour le développement local
+    'templates',  # Chemin pour Render
+    os.path.join(os.path.dirname(__file__), 'templates')  # Chemin alternatif
+]
+
+# Créer le chargeur avec les chemins existants
+loaders = [FileSystemLoader(path) for path in template_paths if os.path.exists(path)]
+
+# Si aucun chemin valide n'est trouvé, utiliser le répertoire de travail courant
+if not loaders:
+    loaders = [FileSystemLoader('.')]
+
+# Configurer le chargeur de templates
+app.jinja_loader = ChoiceLoader(loaders)
+
+# Configuration pour le serveur de production
 if IS_RENDER:
-    from jinja2 import FileSystemLoader, ChoiceLoader
-    
-    # Sur Render, on cherche d'abord dans le dossier templates local, puis à la racine
-    app.jinja_loader = ChoiceLoader([
-        FileSystemLoader('templates'),
-        FileSystemLoader(os.path.join(BASE_DIR, 'templates'))
-    ])
-    
-    # Configuration pour le serveur de production
-    app.config['PREFERRED_URL_SCHEME'] = os.environ.get('PREFERRED_URL_SCHEME', 'https')
-    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', True)
-    app.config['SESSION_COOKIE_HTTPONLY'] = os.environ.get('SESSION_COOKIE_HTTPONLY', True)
-    app.config['SESSION_COOKIE_SAMESITE'] = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
+    app.config.update(
+        PREFERRED_URL_SCHEME='https',
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE='Lax'
+    )
 
 # Vérification complète du contexte d'exécution
 logger.info("=== VÉRIFICATION DU CONTEXTE D'EXÉCUTION ===")
@@ -419,12 +438,12 @@ try:
             else:
                 logger.info(f"  Chargeur {i} - Type: {type(loader).__name__}")
     
-    # Vérifier l'accès au template forgot_password.html
+    # Vérification de l'accès au template forgot_password.html
     possible_paths = [
-        os.path.join(TEMPLATES_DIR, 'forgot_password.html'),
-        os.path.join(BASE_DIR, 'templates', 'forgot_password.html'),
-        'templates/forgot_password.html',
-        'forgot_password.html'
+        os.path.join(BASE_DIR, 'templates', 'forgot_password.html'),  # Chemin développement
+        os.path.join('templates', 'forgot_password.html'),  # Chemin Render
+        'forgot_password.html',  # Chemin relatif
+        os.path.join(os.path.dirname(__file__), 'templates', 'forgot_password.html')  # Chemin alternatif
     ]
     
     found = False
