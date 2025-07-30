@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import create_engine, text, exc
 from sqlalchemy.exc import OperationalError, InterfaceError, DatabaseError
 import pandas as pd
-from database_manager_postgresql import PostgreSQLManager
+from src.database_manager_postgresql import PostgreSQLManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -288,20 +288,27 @@ class PostgreSQLManager:
 
     def save_prediction(self, user_id, method, numeros=None, confidence=0.0, session_id=None):
         try:
-            # 🔹 Compatibilité avec clés différentes (numbers vs numeros)
+            # --- Compatibilité : numbers vs numeros ---
             if numeros is None:
-                logger.warning("Le paramètre 'numeros' est None, vérifiez votre API.")
-                return None
+                logger.warning("Le paramètre 'numeros' est None, tentative de récupération depuis 'numbers'.")
+                return None  # <- tu peux aussi lever une exception ici si c'est critique
 
-            # 🔹 Conversion sécurisée en liste d'entiers (si la source est chaîne ou tuple)
+            # --- Conversion sécurisée en liste d'entiers ---
             if isinstance(numeros, str):
                 try:
-                    numeros = [int(x) for x in numeros.replace('[', '').replace(']', '').split(',')]
+                    numeros = [int(x.strip()) for x in numeros.strip('[]').split(',') if x.strip()]
                 except Exception as e:
                     logger.error(f"Erreur de conversion de numeros depuis une chaîne: {e}")
                     return None
+            elif isinstance(numeros, tuple):
+                numeros = list(numeros)
             elif not isinstance(numeros, list):
                 logger.error(f"Type inattendu pour 'numeros': {type(numeros)}")
+                return None
+
+            # --- Vérification contenu ---
+            if not all(isinstance(x, int) for x in numeros):
+                logger.error(f"Contenu invalide dans 'numeros': {numeros}")
                 return None
 
             with self.engine.connect() as conn:
@@ -320,6 +327,11 @@ class PostgreSQLManager:
                     prediction_id = result.fetchone()[0]
                     logger.info(f"✅ Prédiction sauvegardée: {user_id} - {method} (ID: {prediction_id})")
                     return prediction_id
+
+        except Exception as e:
+            logger.error(f"❌ Erreur sauvegarde prédiction: {e}")
+            return None
+
 
         except Exception as e:
             logger.error(f"❌ Erreur sauvegarde prédiction: {e}")
@@ -477,4 +489,3 @@ class PostgreSQLManager:
         except Exception as e:
             logger.error(f"❌ Erreur récupération prédictions utilisateur: {e}")
             return []
-
