@@ -12,7 +12,43 @@ import logging
 import time
 import schedule
 from datetime import datetime, timedelta
+from pathlib import Path
 
+# Charger les variables d'environnement depuis .env
+from dotenv import load_dotenv
+
+# Configuration du logger (une seule fois au début du fichier)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Éviter les doublons de handlers
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+# Déterminer le chemin du fichier .env (un niveau au-dessus du dossier src)
+env_path = Path(__file__).parent.parent / '.env'
+logger.info(f"Chargement des variables d'environnement depuis: {env_path}")
+
+if not env_path.exists():
+    logger.error(f"Le fichier .env n'existe pas à l'emplacement: {env_path}")
+else:
+    logger.info(f"Fichier .env trouvé à: {env_path}")
+    # Afficher les variables d'environnement chargées (sans afficher les valeurs sensibles)
+    env_vars = load_dotenv(dotenv_path=env_path)
+    logger.info(f"Variables d'environnement chargées: {env_vars}")
+    
+    # Vérifier si SENDGRID_API_KEY est définie
+    sendgrid_key = os.environ.get('SENDGRID_API_KEY')
+    if not sendgrid_key or sendgrid_key == 'your-sendgrid-api-key-here':
+        logger.warning("ATTENTION: Aucune clé API SendGrid valide n'a été trouvée dans le fichier .env")
+        logger.warning("La fonctionnalité de réinitialisation de mot de passe ne fonctionnera pas sans une clé API SendGrid valide")
+    else:
+        logger.info("Clé API SendGrid détectée dans le fichier .env")
+
+# Ajouter le répertoire parent au path pour les imports
 # DON'T CHANGE THIS !!!
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -59,14 +95,37 @@ try:
     
     # Création d'une instance de PostgreSQLManager (plus de Singleton)
     db_manager = PostgreSQLManager()
+    
     # Initialisation du schéma (uniquement dans le processus principal)
     if __name__ == '__main__' or not os.environ.get('WERKZEUG_RUN_MAIN'):
         db_manager.create_schema_if_needed()
     
-    two_fa = TwoFactorAuth()
-    logger.info("Gestionnaire de base de données et 2FA initialisés")
+    # Vérifier que la clé API SendGrid est configurée
+    sendgrid_key = os.environ.get('SENDGRID_API_KEY')
+    if not sendgrid_key or sendgrid_key == 'your-sendgrid-api-key-here':
+        logger.warning("Avertissement: Aucune clé API SendGrid valide n'a été trouvée. "
+                     "La réinitialisation de mot de passe par email ne fonctionnera pas.")
+        two_fa = None
+    else:
+        try:
+            # Tester l'initialisation de TwoFactorAuth
+            two_fa = TwoFactorAuth()
+            logger.info("Gestionnaire 2FA initialisé avec succès")
+        except Exception as e:
+            logger.error(f"Erreur lors de l'initialisation de TwoFactorAuth: {e}")
+            logger.exception("Détails de l'erreur:")
+            two_fa = None
+    
+    logger.info("Gestionnaire de base de données initialisé")
+    
+except ImportError as e:
+    logger.error(f"Erreur d'importation des dépendances: {e}")
+    logger.exception("Détails de l'erreur:")
+    db_manager = None
+    two_fa = None
 except Exception as e:
     logger.error(f"Erreur d'initialisation des dépendances: {e}")
+    logger.exception("Détails de l'erreur:")
     db_manager = None
     two_fa = None
 
@@ -182,16 +241,132 @@ class KenoWebScraper:
             logger.error(f"Erreur lors du scraping: {e}")
             return []
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
-app.secret_key = 'votre-secret-key-tres-secrete-changez-cette-valeur'
-CORS(app)
-
 # Configuration des chemins
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 MODELS_DIR = os.path.join(BASE_DIR, 'models')
+
+# Configuration de l'application Flask
+app = Flask(__name__, 
+            static_folder=STATIC_DIR, 
+            template_folder=TEMPLATES_DIR)
+            
+app.secret_key = 'votre-secret-key-tres-secrete-changez-cette-valeur'
+CORS(app)
+
+# Configuration du débogage des templates
+app.config['EXPLAIN_TEMPLATE_LOADING'] = True
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+# Configuration des chemins de recherche des templates
+app.template_folder = TEMPLATES_DIR
+
+# Vérification complète du contexte d'exécution
+logger.info("=== VÉRIFICATION DU CONTEXTE D'EXÉCUTION ===")
+logger.info(f"Dossier de travail actuel: {os.getcwd()}")
+logger.info(f"Chemin du script: {__file__}")
+logger.info(f"Dossier du script: {os.path.dirname(__file__)}")
+logger.info(f"Dossier des templates: {app.template_folder}")
+logger.info(f"Chemin complet du template: {os.path.join(app.template_folder, 'forgot_password.html')}")
+
+# Vérification de l'accès au dossier des templates
+try:
+    template_files = os.listdir(app.template_folder)
+    logger.info(f"Fichiers trouvés dans le dossier des templates: {template_files}")
+except Exception as e:
+    logger.error(f"ERREUR: Impossible de lister les fichiers du dossier des templates: {str(e)}")
+
+# Vérification du chargement du template forgot_password.html
+try:
+    template_path = os.path.join(app.template_folder, 'forgot_password.html')
+    logger.info(f"Vérification du template à l'emplacement: {template_path}")
+    
+    if not os.path.exists(template_path):
+        logger.error(f"ERREUR: Le fichier forgot_password.html n'existe pas à l'emplacement: {template_path}")
+        
+        # Essayer de trouver le fichier ailleurs
+        for root, dirs, files in os.walk('..'):
+            if 'forgot_password.html' in files:
+                found_path = os.path.join(root, 'forgot_password.html')
+                logger.warning(f"Fichier trouvé à un autre emplacement: {found_path}")
+    else:
+        logger.info("Le fichier forgot_password.html existe bien dans le dossier des templates")
+        
+        # Vérifier les permissions du fichier
+        logger.info(f"Permissions du fichier: {oct(os.stat(template_path).st_mode)[-3:]}")
+        
+        # Essayer d'ouvrir le fichier pour vérifier les permissions
+        try:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                content = f.read(100)  # Lire les 100 premiers caractères
+                logger.info(f"Contenu initial du template: {content}...")
+                
+                # Vérifier si le fichier n'est pas vide
+                if not content.strip():
+                    logger.error("ATTENTION: Le fichier template semble vide")
+                
+        except Exception as e:
+            logger.error(f"ERREUR lors de la lecture du fichier template: {str(e)}")
+            logger.exception("Détails de l'erreur:")
+            
+except Exception as e:
+    logger.error(f"ERREUR lors de la vérification du template: {str(e)}")
+    logger.exception("Détails de l'erreur:")
+
+# Vérifier le contexte d'exécution de Flask
+logger.info("=== CONTEXTE FLASK ===")
+logger.info(f"FLASK_APP: {os.environ.get('FLASK_APP')}")
+logger.info(f"FLASK_ENV: {os.environ.get('FLASK_ENV')}")
+logger.info(f"Application root_path: {app.root_path}")
+logger.info(f"Application template_folder: {app.template_folder}")
+logger.info(f"Jinja loader searchpath: {app.jinja_loader.searchpath}")
+
+# Tester le chargement d'un template simple
+try:
+    test_template = """
+    <!DOCTYPE html>
+    <html>
+    <head><title>Test</title></head>
+    <body><h1>Template de test chargé avec succès!</h1></body>
+    </html>
+    """
+    with app.app_context():
+        rendered = render_template_string(test_template)
+        logger.info("Test de rendu de template réussi")
+except Exception as e:
+    logger.error(f"ERREUR lors du test de rendu de template: {str(e)}")
+    logger.exception("Détails de l'erreur:")
+
+# Log des chemins de recherche des templates
+logger.info(f"Dossier des templates: {app.template_folder}")
+logger.info(f"Dossier de travail: {os.getcwd()}")
+logger.info(f"Chemin complet du template: {os.path.join(app.template_folder, 'forgot_password.html')}")
+logger.info(f"Fichier oublié de mot de passe existe: {os.path.exists(os.path.join(TEMPLATES_DIR, 'forgot_password.html'))}")
+
+# Vérification des droits d'accès au fichier
+try:
+    with open(os.path.join(TEMPLATES_DIR, 'forgot_password.html'), 'r') as f:
+        logger.info("Le fichier forgot_password.html est accessible en lecture")
+except Exception as e:
+    logger.error(f"Erreur d'accès au fichier forgot_password.html: {e}")
+
+# Ajout du répertoire des templates au chemin de recherche Python
+if TEMPLATES_DIR not in app.jinja_loader.searchpath:
+    app.jinja_loader.searchpath.append(TEMPLATES_DIR)
+    logger.info(f"Ajout du répertoire des templates au chemin de recherche: {TEMPLATES_DIR}")
+
+logger.info(f"Chemins de recherche des templates: {app.jinja_loader.searchpath}")
+
+# Vérification du chargement du template
+try:
+    template = app.jinja_env.get_template('forgot_password.html')
+    logger.info("Le template forgot_password.html a été chargé avec succès")
+except Exception as e:
+    logger.error(f"Erreur lors du chargement du template forgot_password.html: {e}")
+    logger.error(f"Détails de l'erreur: {str(e)}", exc_info=True)
 
 # S'assurer que les répertoires existent
 for directory in [STATIC_DIR, TEMPLATES_DIR, DATA_DIR, MODELS_DIR]:
@@ -254,19 +429,33 @@ def login():
 # Routes de réinitialisation de mot de passe avec 2FA
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
+    # Vérifier si le système 2FA est disponible
+    if two_fa is None:
+        error_msg = "Le service de réinitialisation de mot de passe n'est pas disponible actuellement. "
+        error_msg += "Veuillez contacter l'administrateur du site."
+        logger.error("Tentative d'accès à la réinitialisation de mot de passe alors que 2FA n'est pas initialisé")
+        flash(error_msg, 'error')
+        return redirect(url_for('login_page'))
+    
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
-        if not email:
+        if not email or '@' not in email:
             flash('Veuillez fournir une adresse email valide', 'error')
             return redirect(url_for('forgot_password'))
         
         try:
+            logger.info(f"Tentative de réinitialisation pour l'email: {email}")
+            
             # Générer et envoyer le code 2FA
             token = two_fa.generate_reset_token(email)
             if not token:
-                flash('Aucun compte trouvé avec cette adresse email', 'error')
-                return redirect(url_for('forgot_password'))
+                logger.warning(f"Aucun compte trouvé pour l'email: {email}")
+                # Ne pas révéler que l'email n'existe pas pour des raisons de sécurité
+                flash('Si un compte existe avec cet email, un code de réinitialisation a été envoyé.', 'info')
+                return redirect(url_for('login_page'))
                 
+            logger.info(f"Token généré pour {email}")
+            
             if two_fa.send_reset_email(email, token):
                 # Configurer la session avec expiration
                 session.permanent = True
@@ -275,13 +464,19 @@ def forgot_password():
                 session['reset_attempts'] = 0
                 session['last_reset_attempt'] = datetime.utcnow().timestamp()
                 
-                flash('Un code de vérification a été envoyé à votre adresse email', 'info')
+                logger.info(f"Email de réinitialisation envoyé à {email}")
+                flash('Un code de vérification a été envoyé à votre adresse email. Il est valable 15 minutes.', 'info')
                 return redirect(url_for('verify_2fa'))
             else:
-                flash('Erreur lors de l\'envoi de l\'email. Veuillez réessayer plus tard.', 'error')
+                error_msg = 'Erreur lors de l\'envoi de l\'email. Veuillez réessayer plus tard.'
+                logger.error(f"Échec d'envoi d'email à {email}")
+                flash(error_msg, 'error')
+                
         except Exception as e:
-            logging.error(f"Erreur lors de la demande de réinitialisation: {str(e)}")
-            flash('Une erreur est survenue. Veuillez réessayer.', 'error')
+            error_msg = f"Erreur lors de la demande de réinitialisation: {str(e)}"
+            logger.error(error_msg)
+            logger.exception("Détails de l'erreur:")
+            flash('Une erreur est survenue lors du traitement de votre demande. Veuillez réessayer.', 'error')
     
     return render_template('forgot_password.html')
 
