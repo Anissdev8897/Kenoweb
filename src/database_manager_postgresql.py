@@ -286,43 +286,22 @@ class PostgreSQLManager:
             logger.error(f"❌ Erreur lors de la récupération de l\'utilisateur \'{username}\': {e}")
             return None
 
-    def save_prediction(self, user_id, method, numeros=None, confidence=0.0, session_id=None):
+    def save_prediction(self, user_id, method, numeros, confidence=0.0, session_id=None, tirage_id=None):
+        """Sauvegarde une prédiction dans la table predictions selon le schéma réel"""
         try:
-            # --- Compatibilité : numbers vs numeros ---
-            if numeros is None:
-                logger.warning("Le paramètre 'numeros' est None, tentative de récupération depuis 'numbers'.")
-                return None  # <- tu peux aussi lever une exception ici si c'est critique
-
-            # --- Conversion sécurisée en liste d'entiers ---
-            if isinstance(numeros, str):
-                try:
-                    numeros = [int(x.strip()) for x in numeros.strip('[]').split(',') if x.strip()]
-                except Exception as e:
-                    logger.error(f"Erreur de conversion de numeros depuis une chaîne: {e}")
-                    return None
-            elif isinstance(numeros, tuple):
-                numeros = list(numeros)
-            elif not isinstance(numeros, list):
-                logger.error(f"Type inattendu pour 'numeros': {type(numeros)}")
-                return None
-
-            # --- Vérification contenu ---
-            if not all(isinstance(x, int) for x in numeros):
-                logger.error(f"Contenu invalide dans 'numeros': {numeros}")
-                return None
-
             with self.engine.connect() as conn:
                 with conn.begin():
                     result = conn.execute(text("""
-                        INSERT INTO predictions (user_id, method, numeros, confidence, session_id)
-                        VALUES (:user_id, :method, :numeros, :confidence, :session_id)
+                        INSERT INTO predictions (user_id, method, numeros, confidence, session_id, tirage_id)
+                        VALUES (:user_id, :method, :numeros, :confidence, :session_id, :tirage_id)
                         RETURNING id
                     """), {
                         "user_id": user_id,
                         "method": method,
                         "numeros": numeros,
                         "confidence": confidence or 0.0,
-                        "session_id": session_id
+                        "session_id": session_id,
+                        "tirage_id": tirage_id
                     })
                     prediction_id = result.fetchone()[0]
                     logger.info(f"✅ Prédiction sauvegardée: {user_id} - {method} (ID: {prediction_id})")
@@ -332,30 +311,107 @@ class PostgreSQLManager:
             logger.error(f"❌ Erreur sauvegarde prédiction: {e}")
             return None
 
-
-        except Exception as e:
-            logger.error(f"❌ Erreur sauvegarde prédiction: {e}")
-            return None
-
+    def save_user_prediction(self, user_id, tirage_id, predicted_numbers, confidence_score, prediction_method):
+        """Sauvegarde une prédiction dans la table user_predictions selon le schéma réel"""
+        try:
             with self.engine.connect() as conn:
                 with conn.begin():
                     result = conn.execute(text("""
-                        INSERT INTO predictions (user_id, method, numeros, confidence, session_id)
-                        VALUES (:user_id, :method, :numeros, :confidence, :session_id)
+                        INSERT INTO user_predictions (user_id, tirage_id, predicted_numbers, confidence_score, prediction_method)
+                        VALUES (:user_id, :tirage_id, :predicted_numbers, :confidence_score, :prediction_method)
                         RETURNING id
                     """), {
                         "user_id": user_id,
-                        "method": method,
-                        "numeros": numeros,
-                        "confidence": confidence or 0.0,
-                        "session_id": session_id
+                        "tirage_id": tirage_id,
+                        "predicted_numbers": predicted_numbers,
+                        "confidence_score": confidence_score,
+                        "prediction_method": prediction_method
                     })
                     prediction_id = result.fetchone()[0]
-                    logger.info(f"✅ Prédiction sauvegardée: {user_id} - {method} (ID: {prediction_id})")
+                    logger.info(f"✅ Prédiction utilisateur sauvegardée: {user_id} - {prediction_method} (ID: {prediction_id})")
                     return prediction_id
 
         except Exception as e:
-            logger.error(f"❌ Erreur sauvegarde prédiction: {e}")
+            logger.error(f"❌ Erreur sauvegarde prédiction utilisateur: {e}")
+            return None
+
+    def save_analysis_result(self, tirage_id, analysis_type, result_data):
+        """Sauvegarde un résultat d'analyse dans la table analysis_results"""
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    result = conn.execute(text("""
+                        INSERT INTO analysis_results (tirage_id, analysis_type, result_data)
+                        VALUES (:tirage_id, :analysis_type, :result_data)
+                        ON CONFLICT (tirage_id, analysis_type) DO UPDATE
+                        SET result_data = EXCLUDED.result_data,
+                            created_at = CURRENT_TIMESTAMP
+                        RETURNING id
+                    """), {
+                        "tirage_id": tirage_id,
+                        "analysis_type": analysis_type,
+                        "result_data": result_data
+                    })
+                    analysis_id = result.fetchone()[0]
+                    logger.info(f"✅ Résultat d'analyse sauvegardé: {analysis_type} pour tirage {tirage_id} (ID: {analysis_id})")
+                    return analysis_id
+
+        except Exception as e:
+            logger.error(f"❌ Erreur sauvegarde résultat d'analyse: {e}")
+            return None
+
+    def update_method_stats(self, method, total_predictions=None, correct_predictions=None, accuracy=None):
+        """Met à jour les statistiques d'une méthode dans la table method_stats"""
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    # Vérifier si la méthode existe
+                    existing = conn.execute(text("""
+                        SELECT id FROM method_stats WHERE method = :method
+                    """), {"method": method}).fetchone()
+                    
+                    if existing:
+                        # Mettre à jour
+                        update_fields = []
+                        params = {"method": method}
+                        
+                        if total_predictions is not None:
+                            update_fields.append("total_predictions = :total_predictions")
+                            params["total_predictions"] = total_predictions
+                        
+                        if correct_predictions is not None:
+                            update_fields.append("correct_predictions = :correct_predictions")
+                            params["correct_predictions"] = correct_predictions
+                        
+                        if accuracy is not None:
+                            update_fields.append("accuracy = :accuracy")
+                            params["accuracy"] = accuracy
+                        
+                        if update_fields:
+                            update_fields.append("last_updated = CURRENT_TIMESTAMP")
+                            query = f"UPDATE method_stats SET {', '.join(update_fields)} WHERE method = :method RETURNING id"
+                            result = conn.execute(text(query), params)
+                            stats_id = result.fetchone()[0]
+                            logger.info(f"✅ Statistiques mises à jour pour {method} (ID: {stats_id})")
+                            return stats_id
+                    else:
+                        # Créer nouvelle entrée
+                        result = conn.execute(text("""
+                            INSERT INTO method_stats (method, total_predictions, correct_predictions, accuracy)
+                            VALUES (:method, :total_predictions, :correct_predictions, :accuracy)
+                            RETURNING id
+                        """), {
+                            "method": method,
+                            "total_predictions": total_predictions or 0,
+                            "correct_predictions": correct_predictions or 0,
+                            "accuracy": accuracy or 0.0
+                        })
+                        stats_id = result.fetchone()[0]
+                        logger.info(f"✅ Nouvelles statistiques créées pour {method} (ID: {stats_id})")
+                        return stats_id
+
+        except Exception as e:
+            logger.error(f"❌ Erreur mise à jour statistiques méthode: {e}")
             return None
 
     def save_tirage(self, date_tirage, numeros, heure_tirage=None, multiplicateur=None, joker=None, **kwargs):
@@ -489,3 +545,4 @@ class PostgreSQLManager:
         except Exception as e:
             logger.error(f"❌ Erreur récupération prédictions utilisateur: {e}")
             return []
+

@@ -1285,23 +1285,11 @@ class KenoAnalyzer:
         }
     
     def save_predictions(self, predictions):
-        """Sauvegarder les prédictions dans un fichier JSON et en base de données"""
-        predictions_file = os.path.join(os.path.dirname(self.csv_file), 'predictions.json')
+        """Sauvegarder les prédictions uniquement en base de données"""
         try:
-            from datetime import datetime
-            import json
-            predictions_with_timestamp = {
-                'timestamp': datetime.now().isoformat(),
-                'predictions': predictions,
-                'last_draw': self.get_last_draw_info()
-            }
-            
-            # Sauvegarde traditionnelle en fichier JSON
-            with open(predictions_file, 'w', encoding='utf-8') as f:
-                json.dump(predictions_with_timestamp, f, ensure_ascii=False, indent=2)
-            
-            # Sauvegarde en base de données si disponible
+            # Sauvegarde en base de données uniquement
             if hasattr(self, 'db_manager') and hasattr(self.db_manager, 'save_prediction'):
+                saved_count = 0
                 for prediction in predictions:
                     user_id = prediction.get('username', 'anonymous')
                     method = prediction.get('method', 'unknown')
@@ -1311,30 +1299,53 @@ class KenoAnalyzer:
                         prediction_id = self.db_manager.save_prediction(
                             user_id=user_id,
                             method=method,
-                            numbers=numbers,
+                            numeros=numbers,  # Utiliser 'numeros' selon le schéma de la base
                             confidence=confidence
                         )
                         if prediction_id:
-                            print(f"Prédiction sauvegardée en base: ID {prediction_id}")
+                            saved_count += 1
+                            logger.info(f"Prédiction sauvegardée en base: ID {prediction_id}")
                     except Exception as e:
-                        print(f"Erreur sauvegarde base de données: {e}")
-            print(f"Prédictions sauvegardées dans {predictions_file}")
-            return True
+                        logger.error(f"Erreur sauvegarde base de données: {e}")
+                
+                logger.info(f"{saved_count}/{len(predictions)} prédictions sauvegardées en base de données")
+                return saved_count > 0
+            else:
+                logger.error("Gestionnaire de base de données non disponible")
+                return False
         except Exception as e:
-            print(f"Erreur lors de la sauvegarde des prédictions: {e}")
+            logger.error(f"Erreur lors de la sauvegarde des prédictions: {e}")
             return False
     
     def load_predictions(self):
-        """Charger les prédictions depuis le fichier JSON"""
-        predictions_file = os.path.join(os.path.dirname(self.csv_file), 'predictions.json')
+        """Charger les prédictions depuis la base de données"""
         try:
-            if os.path.exists(predictions_file):
-                with open(predictions_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                logger.info("Prédictions chargées depuis le fichier")
-                return data
+            if hasattr(self, 'db_manager') and hasattr(self.db_manager, 'get_user_predictions'):
+                # Charger les prédictions récentes depuis la base de données
+                predictions = self.db_manager.get_user_predictions(limit=50)
+                if predictions:
+                    logger.info(f"{len(predictions)} prédictions chargées depuis la base de données")
+                    # Formater les données pour compatibilité avec l'ancien format
+                    formatted_data = {
+                        'timestamp': datetime.now().isoformat(),
+                        'predictions': [
+                            {
+                                'username': pred.get('user_id', 'unknown'),
+                                'method': pred.get('method', 'unknown'),
+                                'numbers': pred.get('numeros', []),
+                                'confidence': float(pred.get('confidence', 0.0)),
+                                'created_at': pred.get('created_at', '').isoformat() if pred.get('created_at') else None
+                            }
+                            for pred in predictions
+                        ],
+                        'last_draw': self.get_last_draw_info()
+                    }
+                    return formatted_data
+                else:
+                    logger.info("Aucune prédiction trouvée en base de données")
+                    return None
             else:
-                logger.info("Aucun fichier de prédictions trouvé")
+                logger.error("Gestionnaire de base de données non disponible")
                 return None
         except Exception as e:
             logger.error(f"Erreur lors du chargement des prédictions: {e}")
@@ -1939,45 +1950,103 @@ def api_save_system_prediction():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/save_user_prediction', methods=['POST'])
+@app.route("/api/save_user_prediction", methods=["POST"])
 def api_save_user_prediction():
     try:
         logger.info("Début de l'API save_user_prediction")
-        
+
         if not request.is_json:
             logger.error("Erreur: Content-Type n'est pas application/json")
-            return jsonify({'success': False, 'error': 'Content-Type doit être application/json'}), 400
-            
-        data = request.get_json()
+            return jsonify({'success': False, 'error': "Content-Type doit être application/json"}), 400
+
+        data = request.get_json(silent=True) or {}
         logger.info(f"Données reçues: {data}")
-        
-        if not data:
-            logger.error("Erreur: Aucune donnée JSON reçue")
-            return jsonify({'success': False, 'error': 'Données JSON invalides'}), 400
-            
-        user_id = data.get('user_id', 'anonymous')
-        method = data.get('method')
-        numeros = data.get('numeros')
-        confidence = data.get('confidence', 0.0)
-        
-        logger.info(f"Paramètres extraits - user_id: {user_id}, method: {method}, numeros: {numeros}, confidence: {confidence}")
-        
-        # Validation détaillée
-        if not method:
-            logger.error("Erreur: Le champ method est manquant")
-            return jsonify({'success': False, 'error': 'Le champ method est requis'}), 400
-            
-        if not isinstance(method, str) or not method.strip():
-            logger.error("Erreur: Le champ method n'est pas une chaîne valide")
-            return jsonify({'success': False, 'error': 'Le champ method doit être une chaîne non vide'}), 400
-            
-        if numeros is None:
+
+        # --- Extraction des champs principaux ---
+        user_id = str(data.get('user_id') or data.get('session_id') or 'anonymous')
+        method = (data.get('method') or 'manual').strip()[:100]
+        session_id = data.get('session_id')  # optionnel
+        tirage_id = data.get('tirage_id')    # optionnel
+
+        # --- numeros: accepte "numeros" ou "numbers", liste ou CSV ---
+        raw_numeros = data.get('numeros') or data.get('numbers')
+        if raw_numeros is None:
             logger.error("Erreur: Le champ numeros est manquant")
-            return jsonify({'success': False, 'error': 'Le champ numeros est requis'}), 400
-            
-        if not isinstance(numeros, list):
-            logger.error(f"Erreur: Le champ numeros n'est pas une liste (type: {type(numeros)})")
-            return jsonify({'success': False, 'error': 'Le champ numeros doit être une liste'}), 400
+            return jsonify({'success': False, 'error': "Champ 'numeros' (ou 'numbers') manquant"}), 400
+
+        try:
+            if isinstance(raw_numeros, str):
+                # autorise séparateurs virgule/point-virgule/espaces
+                parts = (
+                    raw_numeros.replace(';', ',')
+                               .replace(' ', ',')
+                               .split(',')
+                )
+                numeros = [int(p) for p in parts if p.strip() != '']
+            elif isinstance(raw_numeros, list):
+                numeros = [int(x) for x in raw_numeros]
+            else:
+                return jsonify({'success': False, 'error': "Format non valide pour 'numeros'"}), 400
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': "Le champ 'numeros' doit contenir uniquement des entiers"}), 400
+
+        if not numeros:
+            return jsonify({'success': False, 'error': "La liste 'numeros' ne peut pas être vide"}), 400
+
+        # (Optionnel) dédoublonne en préservant l'ordre
+        numeros = list(dict.fromkeys(numeros))
+
+        # --- confidence: tolère 'confidence' ou 'confidence_score' ---
+        confidence = data.get('confidence', data.get('confidence_score', 0.0))
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):
+            confidence = 0.0
+
+        # --- Sauvegarde en base ---
+        try:
+            # Si ton manager expose save_prediction (cf. section 2), utilise-le :
+            if hasattr(db_manager, "save_prediction"):
+                prediction_id = db_manager.save_prediction(
+                    user_id=user_id,
+                    method=method,
+                    numeros=numeros,
+                    confidence=confidence,
+                    session_id=session_id,
+                    tirage_id=tirage_id
+                )
+            else:
+                # Fallback: insertion directe avec SQLAlchemy
+                with db_manager.engine.connect() as conn:
+                    with conn.begin():
+                        res = conn.execute(text("""
+                            INSERT INTO predictions (tirage_id, user_id, method, numeros, session_id, confidence)
+                            VALUES (:tirage_id, :user_id, :method, :numeros, :session_id, :confidence)
+                            RETURNING id
+                        """), {
+                            "tirage_id": tirage_id,
+                            "user_id": user_id,
+                            "method": method,
+                            "numeros": numeros,      # ← Python list → INTEGER[] en PostgreSQL
+                            "session_id": session_id,
+                            "confidence": confidence,
+                        })
+                        prediction_id = res.scalar()
+
+                if prediction_id:
+                    logger.info(f"Prédiction sauvegardée (ID: {prediction_id})")
+                    return jsonify({'success': True, 'id': prediction_id}), 201
+
+                logger.error("Insertion non confirmée (pas d'ID retourné)")
+                return jsonify({'success': False, 'error': "Erreur de sauvegarde"}), 500
+
+        except Exception as e:
+            logger.exception("Erreur lors de la sauvegarde en base")
+            return jsonify({'success': False, 'error': "Erreur interne"}), 500
+
+        except Exception as e:
+            logger.exception("Erreur imprévue dans l'API save_user_prediction")
+            return jsonify({'success': False, 'error': "Erreur interne"}), 500
             
         # Convertir les numéros en entiers si nécessaire
         try:
