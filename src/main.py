@@ -12,10 +12,6 @@ import logging
 import time
 import schedule
 from datetime import datetime, timedelta
-
-# DON'T CHANGE THIS !!!
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
 from flask import Flask, render_template, request, jsonify, send_from_directory, session, redirect, url_for, flash
 from functools import wraps
 from flask_cors import CORS
