@@ -3,6 +3,7 @@
 Keno Analyzer Pro - Application Flask pour déploiement web
 Version adaptée avec système de mise à jour automatique et réentraînement
 """
+import shutil  # Pour les opérations de copie de fichiers
 
 import os
 import sys
@@ -67,7 +68,10 @@ import stat
 # Importer les fonctions d'authentification
 from auth_system import AuthSystem
 
-database_url = os.getenv("DATABASE_URL", "postgresql://localhost:5432/keno_analyzer")
+# Récupération de l'URL de la base de données depuis les variables d'environnement
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
 
 # Import des modules d'analyse spécialisés
 try:

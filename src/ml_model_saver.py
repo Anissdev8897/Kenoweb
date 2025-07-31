@@ -19,10 +19,9 @@ class MLModelSaver:
     """Classe pour sauvegarder les modèles ML avec leurs poids"""
     
     def __init__(self):
-        self.database_url = os.environ.get(
-            "DATABASE_URL",
-            "postgresql://keno_user:keno_password@localhost:5432/keno_db"
-        )
+        self.database_url = os.environ.get("DATABASE_URL")
+        if not self.database_url:
+            raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
         self.engine = create_engine(self.database_url)
         
     def save_model_with_weights(self, model_data):

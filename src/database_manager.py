@@ -27,9 +27,31 @@ logger = logging.getLogger(__name__)
 
 class DatabaseManager:
     def __init__(self):
+        # Récupération de l'URL de la base de données depuis les variables d'environnement
+        self.database_url = os.environ.get("DATABASE_URL")
         if not self.database_url:
-            raise ValueError("DATABASE_URL environment variable not set.")
-        self.engine = create_engine(self.database_url)
+            logger.error("La variable d'environnement DATABASE_URL n'est pas définie")
+            raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
+            
+        logger.info(f"Connexion à la base de données avec l'URL: {self.database_url[:30]}...")  # Ne pas logger l'URL complète pour des raisons de sécurité
+        
+        # Configuration de l'engine SQLAlchemy avec des paramètres optimisés
+        self.engine = create_engine(
+            self.database_url,
+            pool_pre_ping=True,
+            pool_recycle=3600,
+            pool_size=5,
+            max_overflow=10,
+            connect_args={
+                'connect_timeout': 10,
+                'keepalives': 1,
+                'keepalives_idle': 30,
+                'keepalives_interval': 10,
+                'keepalives_count': 5
+            }
+        )
+        
+        # Création des tables si nécessaire
         self._create_tables()
 
     def _create_tables(self):

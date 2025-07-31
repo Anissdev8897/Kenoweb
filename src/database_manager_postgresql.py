@@ -1,471 +1,576 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-import os
-import sys
-import stat
 import logging
-import unittest
-import tempfile
-import sqlite3
-from datetime import datetime, date, timedelta
-import json
+import os
+import time
+from datetime import datetime
 
-# Configuration simple du logger
+from sqlalchemy import create_engine, text, exc
+from sqlalchemy.exc import OperationalError, InterfaceError, DatabaseError
+import pandas as pd
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-KEY_PATH = "/root/.ssh/id_rsa"
+# NOTE IMPORTANTE : Le pattern Singleton (get_postgresql_manager) a été supprimé.
+# Chaque processus (ou thread) doit créer sa propre instance de PostgreSQLManager.
+# Cela résout les problèmes de connexion SSL inattendue dans les environnements multi-processus (ex: Flask en mode debug).
 
-def prepare_ssh_key():
-    private_key = os.getenv("SSH_PRIVATE_KEY")
-    if not private_key:
-        logger.error("La variable d'environnement SSH_PRIVATE_KEY est absente.")
-        return False
-    
-    ssh_dir = os.path.dirname(KEY_PATH)
-    if not os.path.exists(ssh_dir):
-        os.makedirs(ssh_dir, mode=0o700)
-        logger.info(f"Création du dossier SSH : {ssh_dir}")
-    
-    with open(KEY_PATH, "w") as f:
-        f.write(private_key)
-    
-    os.chmod(KEY_PATH, stat.S_IRUSR | stat.S_IWUSR)
-    logger.info(f"Clé privée SSH écrite dans {KEY_PATH} avec permissions 600")
-    return True
-
-# Préparation de la clé SSH avant la suite du code
-if not prepare_ssh_key():
-    logger.error("Échec de la préparation de la clé SSH. Arrêt des tests.")
-    sys.exit(1)
-
-# Ajouter le répertoire src au path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-# Vérification de la variable d'environnement DATABASE_URL
-database_url = os.environ.get("DATABASE_URL")
-if not database_url:
-    logger.error("La variable d'environnement DATABASE_URL est requise pour exécuter les tests")
-    sys.exit(1)
-
-# Import des dépendances après configuration de l'environnement
-from enhanced_database_manager import EnhancedDatabaseManagerV2
-from enhanced_ml_trainer import EnhancedMLTrainerV2
-
-class TestUserPredictionsV2(unittest.TestCase):
-    
-    def setUp(self):
-        """Initialiser les tests avec une base de données temporaire."""
-        self.db_manager = EnhancedDatabaseManagerV2()
-        self.ml_trainer = EnhancedMLTrainerV2()
+class PostgreSQLManager:
+    def __init__(self):
+        """
+        Initialise une nouvelle instance du gestionnaire de base de données.
+        Chaque instance gère son propre pool de connexions.
+        """
+        logger.info("Initialisation d'une nouvelle instance de PostgreSQLManager...")
+        # Utiliser uniquement la variable d'environnement, sans valeur par défaut
+        self.database_url = os.environ.get("DATABASE_URL")
+        if not self.database_url:
+            logger.error("La variable d'environnement DATABASE_URL n'est pas définie")
+            raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
         
-        # Insérer quelques tirages de test
-        self.insert_test_tirages()
-    
-    def insert_test_tirages(self):
-        """Insérer des tirages de test."""
-        test_tirages = [
-            {
-                'date_tirage': date(2025, 1, 1),
-                'heure_tirage': None,
-                'numero_1': 5, 'numero_2': 12, 'numero_3': 18, 'numero_4': 25,
-                'numero_5': 33, 'numero_6': 41, 'numero_7': 47, 'numero_8': 52,
-                'numero_9': 58, 'numero_10': 63, 'numero_11': 2, 'numero_12': 9,
-                'numero_13': 15, 'numero_14': 22, 'numero_15': 29, 'numero_16': 36,
-                'numero_17': 43, 'numero_18': 49, 'numero_19': 55, 'numero_20': 67,
-                'multiplicateur': None, 'joker': None
-            },
-            {
-                'date_tirage': date(2025, 1, 2),
-                'heure_tirage': None,
-                'numero_1': 3, 'numero_2': 11, 'numero_3': 19, 'numero_4': 27,
-                'numero_5': 34, 'numero_6': 42, 'numero_7': 48, 'numero_8': 53,
-                'numero_9': 59, 'numero_10': 64, 'numero_11': 7, 'numero_12': 14,
-                'numero_13': 21, 'numero_14': 28, 'numero_15': 35, 'numero_16': 41,
-                'numero_17': 46, 'numero_18': 51, 'numero_19': 57, 'numero_20': 68,
-                'multiplicateur': None, 'joker': None
-            },
-            {
-                'date_tirage': date(2025, 1, 3),
-                'heure_tirage': None,
-                'numero_1': 1, 'numero_2': 8, 'numero_3': 16, 'numero_4': 23,
-                'numero_5': 31, 'numero_6': 38, 'numero_7': 45, 'numero_8': 50,
-                'numero_9': 56, 'numero_10': 61, 'numero_11': 4, 'numero_12': 10,
-                'numero_13': 17, 'numero_14': 24, 'numero_15': 32, 'numero_16': 39,
-                'numero_17': 44, 'numero_18': 52, 'numero_19': 58, 'numero_20': 65,
-                'multiplicateur': None, 'joker': None
+        # Configuration SSL avancée pour Render avec reconnexion
+        self.connect_args = {
+            'sslmode': 'require',
+            'sslrootcert': None,
+            'sslcert': None,
+            'sslkey': None,
+            'ssl_min_protocol_version': 'TLSv1.2',
+            'ssl_max_protocol_version': 'TLSv1.3',
+            'connect_timeout': 20,
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5,
+            'application_name': 'keno_analyzer',
+            'options': '-c statement_timeout=30000',  # Timeout de 30 secondes par requête
+            'client_encoding': 'utf8'
+        }
+
+        from sqlalchemy.pool import QueuePool
+        
+        # Configurer le moteur avec des paramètres optimisés pour Render
+        self.engine = create_engine(
+            self.database_url,
+            poolclass=QueuePool,
+            pool_size=2,            # Réduit pour éviter la surcharge
+            max_overflow=3,         # Réduit pour éviter la surcharge
+            pool_recycle=120,       # Recycle plus fréquemment (2 minutes)
+            pool_timeout=15,        # Timeout plus court pour obtenir une connexion
+            pool_pre_ping=True,     # Vérifie la connexion avant utilisation
+            pool_use_lifo=True,     # Réutilise les connexions récentes
+            connect_args=self.connect_args,
+            execution_options={
+                'isolation_level': 'READ COMMITTED',
+                'compiled_cache': None
             }
-        ]
-        
-        for tirage in test_tirages:
-            with self.db_manager.engine.connect() as conn:
-                conn.execute(self.db_manager.engine.text("""
-                    INSERT INTO tirages_keno (
-                        date_tirage, heure_tirage, numero_1, numero_2, numero_3,
-                        numero_4, numero_5, numero_6, numero_7, numero_8,
-                        numero_9, numero_10, numero_11, numero_12, numero_13,
-                        numero_14, numero_15, numero_16, numero_17, numero_18,
-                        numero_19, numero_20, multiplicateur, joker
-                    ) VALUES (
-                        :date_tirage, :heure_tirage, :numero_1, :numero_2, :numero_3,
-                        :numero_4, :numero_5, :numero_6, :numero_7, :numero_8,
-                        :numero_9, :numero_10, :numero_11, :numero_12, :numero_13,
-                        :numero_14, :numero_15, :numero_16, :numero_17, :numero_18,
-                        :numero_19, :numero_20, :multiplicateur, :joker
-                    )
-                """), tirage)
-                conn.commit()
-    
-    def test_user_creation_and_identification(self):
-        """Tester la création et l'identification des utilisateurs."""
-        print("\n=== Test de création et identification des utilisateurs ===")
-        
-        # Test 1: Créer un nouvel utilisateur
-        session_id_1 = "test_session_001"
-        ip_address_1 = "192.168.1.100"
-        
-        user_id_1 = self.db_manager.get_or_create_user(session_id_1, ip_address_1)
-        print(f"Utilisateur créé: {user_id_1}")
-        
-        self.assertIsNotNone(user_id_1)
-        self.assertTrue(user_id_1.startswith('utilisateur'))
-        
-        # Test 2: Récupérer le même utilisateur avec la même session
-        user_id_1_bis = self.db_manager.get_or_create_user(session_id_1, ip_address_1)
-        print(f"Utilisateur récupéré: {user_id_1_bis}")
-        
-        self.assertEqual(user_id_1, user_id_1_bis)
-        
-        # Test 3: Créer un deuxième utilisateur
-        session_id_2 = "test_session_002"
-        ip_address_2 = "192.168.1.101"
-        
-        user_id_2 = self.db_manager.get_or_create_user(session_id_2, ip_address_2)
-        print(f"Deuxième utilisateur créé: {user_id_2}")
-        
-        self.assertIsNotNone(user_id_2)
-        self.assertNotEqual(user_id_1, user_id_2)
-        
-        print("✅ Test de création d'utilisateurs réussi")
-    
-    def test_user_predictions_persistence(self):
-        """Tester la persistance des prédictions utilisateurs."""
-        print("\n=== Test de persistance des prédictions utilisateurs ===")
-        
-        session_id = "test_session_predictions"
-        ip_address = "192.168.1.200"
-        
-        # Test 1: Sauvegarder une prédiction utilisateur
-        predicted_numbers = [5, 12, 18, 25, 33, 41, 47, 52]
-        target_date = date(2025, 1, 10)
-        method_name = "Analyse Fréquences"
-        
-        prediction_id, user_id = self.db_manager.save_user_prediction(
-            session_id=session_id,
-            method_name=method_name,
-            predicted_numbers=predicted_numbers,
-            target_date=target_date,
-            confidence_score=0.75,
-            ip_address=ip_address
         )
         
-        print(f"Prédiction sauvegardée: ID={prediction_id}, Utilisateur={user_id}")
+        # Configuration des tentatives de reconnexion
+        self.max_retries = 3
+        self.retry_delay = 1
+        self.last_connection_time = None
         
-        self.assertIsNotNone(prediction_id)
-        self.assertIsNotNone(user_id)
+        # Configurer le gestionnaire d'événements pour gérer les erreurs de connexion
+        from sqlalchemy import event
         
-        # Test 2: Sauvegarder une deuxième prédiction pour le même utilisateur
-        predicted_numbers_2 = [3, 11, 19, 27, 34, 42, 48, 53]
-        method_name_2 = "Analyse Écarts"
-        
-        prediction_id_2, user_id_2 = self.db_manager.save_user_prediction(
-            session_id=session_id,
-            method_name=method_name_2,
-            predicted_numbers=predicted_numbers_2,
-            target_date=target_date,
-            confidence_score=0.68,
-            ip_address=ip_address
-        )
-        
-        print(f"Deuxième prédiction sauvegardée: ID={prediction_id_2}, Utilisateur={user_id_2}")
-        
-        self.assertEqual(user_id, user_id_2)  # Même utilisateur
-        self.assertNotEqual(prediction_id, prediction_id_2)  # Prédictions différentes
-        
-        # Test 3: Vérifier que les prédictions ne s'écrasent pas
-        predictions_df = self.db_manager.get_all_predictions_for_display(limit=10)
-        user_predictions = predictions_df[predictions_df['predictor_id'] == user_id]
-        
-        print(f"Nombre de prédictions pour {user_id}: {len(user_predictions)}")
-        self.assertEqual(len(user_predictions), 2)
-        
-        print("✅ Test de persistance des prédictions réussi")
-    
-    def test_prediction_evaluation_and_errors(self):
-        """Tester l'évaluation des prédictions et l'analyse des erreurs."""
-        print("\n=== Test d'évaluation des prédictions et analyse des erreurs ===")
-        
-        session_id = "test_session_evaluation"
-        ip_address = "192.168.1.300"
-        
-        # Créer une prédiction pour un tirage existant
-        target_date = date(2025, 1, 1)
-        predicted_numbers = [5, 12, 18, 25, 33, 41, 47, 99]  # 99 n'existe pas dans le tirage
-        
-        prediction_id, user_id = self.db_manager.save_user_prediction(
-            session_id=session_id,
-            method_name="Test Évaluation",
-            predicted_numbers=predicted_numbers,
-            target_date=target_date,
-            confidence_score=0.80,
-            ip_address=ip_address
-        )
-        
-        print(f"Prédiction créée pour évaluation: ID={prediction_id}")
-        
-        # Simuler l'évaluation avec les numéros réels du tirage
-        actual_numbers = [5, 12, 18, 25, 33, 41, 47, 52, 58, 63, 2, 9, 15, 22, 29, 36, 43, 49, 55, 67]
-        
-        self.db_manager.evaluate_predictions_for_tirage(
-            tirage_date=target_date,
-            tirage_time=None,
-            actual_numbers=actual_numbers
-        )
-        
-        print("Évaluation des prédictions effectuée")
-        
-        # Vérifier les résultats de l'évaluation
-        with self.db_manager.engine.connect() as conn:
-            result = conn.execute(self.db_manager.engine.text("""
-                SELECT correct_count, accuracy_percentage, is_evaluated
-                FROM unified_predictions 
-                WHERE id = :prediction_id
-            """), {"prediction_id": prediction_id})
-            
-            evaluation_result = result.fetchone()
-            
-        print(f"Résultat évaluation: {evaluation_result[0]} corrects, {evaluation_result[1]}% précision")
-        
-        self.assertTrue(evaluation_result[2])  # is_evaluated = True
-        self.assertEqual(evaluation_result[0], 7)  # 7 numéros corrects
-        self.assertAlmostEqual(evaluation_result[1], 87.5, places=1)  # 7/8 = 87.5%
-        
-        # Vérifier l'analyse des erreurs
-        errors_df = self.db_manager.get_user_prediction_errors(user_id, limit=5)
-        
-        print(f"Nombre d'erreurs analysées: {len(errors_df)}")
-        self.assertEqual(len(errors_df), 1)
-        
-        error_row = errors_df.iloc[0]
-        print(f"Erreurs détaillées: {error_row['error_count']} erreurs, {error_row['miss_count']} manqués")
-        
-        self.assertEqual(error_row['error_count'], 1)  # 1 numéro prédit mais pas tiré (99)
-        self.assertEqual(error_row['miss_count'], 13)  # 13 numéros tirés mais pas prédits
-        
-        print("✅ Test d'évaluation et analyse des erreurs réussi")
-    
-    def test_ml_vs_user_performance_comparison(self):
-        """Tester la comparaison des performances ML vs utilisateurs."""
-        print("\n=== Test de comparaison des performances ML vs utilisateurs ===")
-        
-        # Créer des prédictions utilisateur
-        session_id = "test_session_comparison"
-        user_prediction_id, user_id = self.db_manager.save_user_prediction(
-            session_id=session_id,
-            method_name="Test Utilisateur",
-            predicted_numbers=[1, 8, 16, 23, 31, 38, 45, 50],
-            target_date=date(2025, 1, 3),
-            confidence_score=0.65,
-            ip_address="192.168.1.400"
-        )
-        
-        # Créer une prédiction ML
-        ml_prediction_id = self.db_manager.save_ml_prediction(
-            model_name="test_model",
-            method_name="Test ML",
-            predicted_numbers=[1, 8, 16, 23, 31, 38, 45, 56],
-            target_date=date(2025, 1, 3),
-            confidence_score=0.85
-        )
-        
-        print(f"Prédictions créées: Utilisateur={user_prediction_id}, ML={ml_prediction_id}")
-        
-        # Évaluer les prédictions
-        actual_numbers = [1, 8, 16, 23, 31, 38, 45, 50, 56, 61, 4, 10, 17, 24, 32, 39, 44, 52, 58, 65]
-        
-        self.db_manager.evaluate_predictions_for_tirage(
-            tirage_date=date(2025, 1, 3),
-            tirage_time=None,
-            actual_numbers=actual_numbers
-        )
-        
-        # Récupérer le classement unifié
-        leaderboard_df = self.db_manager.get_unified_leaderboard(limit=10)
-        
-        print(f"Nombre d'entrées dans le classement: {len(leaderboard_df)}")
-        self.assertGreaterEqual(len(leaderboard_df), 2)
-        
-        # Vérifier que les deux types de prédicteurs sont présents
-        predictor_types = set(leaderboard_df['predictor_type'].tolist())
-        print(f"Types de prédicteurs: {predictor_types}")
-        
-        self.assertIn('USER', predictor_types)
-        self.assertIn('ML_MODEL', predictor_types)
-        
-        # Analyser les performances comparatives
-        try:
-            analysis = self.ml_trainer.analyze_user_vs_ml_performance(days_back=30)
-            
-            print(f"Analyse comparative:")
-            print(f"- Utilisateurs actifs: {analysis['comparison'].get('active_users', 0)}")
-            print(f"- Modèles ML actifs: {analysis['comparison'].get('active_ml_models', 0)}")
-            print(f"- Précision moyenne utilisateurs: {analysis['comparison'].get('user_avg_accuracy', 0):.2f}%")
-            print(f"- Précision moyenne ML: {analysis['comparison'].get('ml_avg_accuracy', 0):.2f}%")
-            
-            self.assertIsInstance(analysis, dict)
-            self.assertIn('comparison', analysis)
-            
-        except Exception as e:
-            print(f"Note: Analyse comparative non disponible (normal en test): {e}")
-        
-        print("✅ Test de comparaison des performances réussi")
-    
-    def test_multiple_users_no_interference(self):
-        """Tester que plusieurs utilisateurs n'interfèrent pas entre eux."""
-        print("\n=== Test de non-interférence entre utilisateurs ===")
-        
-        # Créer 3 utilisateurs différents
-        users_data = [
-            {"session": "session_user_1", "ip": "192.168.1.501", "method": "Fréquences"},
-            {"session": "session_user_2", "ip": "192.168.1.502", "method": "Écarts"},
-            {"session": "session_user_3", "ip": "192.168.1.503", "method": "Cycles"}
-        ]
-        
-        user_ids = []
-        prediction_ids = []
-        
-        # Créer des prédictions pour chaque utilisateur
-        for i, user_data in enumerate(users_data):
-            predicted_numbers = [j + (i * 10) for j in range(1, 9)]  # Numéros différents pour chaque utilisateur
-            predicted_numbers = [n for n in predicted_numbers if n <= 70]  # S'assurer que les numéros sont valides
-            
-            if len(predicted_numbers) < 8:
-                predicted_numbers.extend(range(60, 68))
-                predicted_numbers = predicted_numbers[:8]
-            
-            prediction_id, user_id = self.db_manager.save_user_prediction(
-                session_id=user_data["session"],
-                method_name=user_data["method"],
-                predicted_numbers=predicted_numbers,
-                target_date=date(2025, 1, 15),
-                confidence_score=0.70 + (i * 0.05),
-                ip_address=user_data["ip"]
+        def reconnect_engine():
+            """Réinitialise le moteur de base de données et établit une nouvelle connexion"""
+            logger.warning("Tentative de reconnexion à la base de données...")
+            self.engine.dispose()  # Ferme toutes les connexions existantes
+            self.engine = create_engine(
+                self.database_url,
+                poolclass=QueuePool,
+                pool_size=2,
+                max_overflow=3,
+                pool_recycle=120,
+                pool_timeout=15,
+                pool_pre_ping=True,
+                pool_use_lifo=True,
+                connect_args=self.connect_args,
+                execution_options={
+                    'isolation_level': 'READ COMMITTED',
+                    'compiled_cache': None
+                }
             )
+            self.last_connection_time = datetime.now()
+            logger.info("Nouvelle connexion à la base de données établie")
             
-            user_ids.append(user_id)
-            prediction_ids.append(prediction_id)
+        self.reconnect_engine = reconnect_engine
+        
+        @event.listens_for(self.engine, 'engine_connect')
+        def receive_engine_connect(conn, branch):
+            if branch:
+                return
+            logger.info("Nouvelle connexion établie avec la base de données")
             
-            print(f"Utilisateur {i+1}: {user_id}, Prédiction: {prediction_id}")
-        
-        # Vérifier que tous les utilisateurs sont différents
-        self.assertEqual(len(set(user_ids)), 3)
-        
-        # Vérifier que toutes les prédictions sont différentes
-        self.assertEqual(len(set(prediction_ids)), 3)
-        
-        # Vérifier que chaque utilisateur a ses propres prédictions
-        for user_id in user_ids:
-            user_predictions = self.db_manager.get_user_performance_summary(user_id)
-            print(f"Prédictions pour {user_id}: {len(user_predictions)}")
-            self.assertEqual(len(user_predictions), 1)
-        
-        # Récupérer toutes les prédictions et vérifier qu'elles sont toutes présentes
-        all_predictions = self.db_manager.get_all_predictions_for_display(limit=20)
-        user_predictions_count = len(all_predictions[all_predictions['predictor_type'] == 'USER'])
-        
-        print(f"Total des prédictions utilisateurs dans le système: {user_predictions_count}")
-        self.assertGreaterEqual(user_predictions_count, 3)
-        
-        print("✅ Test de non-interférence entre utilisateurs réussi")
-    
-    def test_user_display_names(self):
-        """Tester que les noms d'affichage des utilisateurs sont corrects."""
-        print("\n=== Test des noms d'affichage des utilisateurs ===")
-        
-        session_id = "test_session_display"
-        ip_address = "192.168.1.600"
-        
-        # Créer un utilisateur
-        user_id = self.db_manager.get_or_create_user(session_id, ip_address)
-        
-        # Vérifier le nom d'affichage dans la base de données
-        with self.db_manager.engine.connect() as conn:
-            result = conn.execute(self.db_manager.engine.text("""
-                SELECT display_name FROM users WHERE user_id = :user_id
-            """), {"user_id": user_id})
-            
-            display_name = result.fetchone()[0]
-        
-        print(f"Nom d'affichage pour {user_id}: {display_name}")
-        
-        # Vérifier que le nom d'affichage suit le format attendu
-        self.assertTrue(display_name.startswith('Utilisateur'))
-        self.assertNotEqual(display_name, 'undefined')
-        
-        # Créer une prédiction et vérifier l'affichage
-        prediction_id, _ = self.db_manager.save_user_prediction(
-            session_id=session_id,
-            method_name="Test Affichage",
-            predicted_numbers=[1, 2, 3, 4, 5, 6, 7, 8],
-            target_date=date(2025, 1, 20),
-            ip_address=ip_address
-        )
-        
-        # Récupérer les prédictions avec noms d'affichage
-        predictions_df = self.db_manager.get_all_predictions_for_display(limit=5)
-        user_prediction = predictions_df[predictions_df['predictor_id'] == user_id].iloc[0]
-        
-        print(f"Méthode d'affichage: {user_prediction['display_method']}")
-        
-        # Vérifier que le nom d'affichage contient le nom de l'utilisateur
-        self.assertIn(display_name, user_prediction['display_method'])
-        self.assertNotIn('undefined', user_prediction['display_method'])
-        
-        print("✅ Test des noms d'affichage réussi")
+        @event.listens_for(self.engine, 'checkout')
+        def receive_checkout(dbapi_connection, connection_record, connection_proxy):
+            logger.debug("Vérification de la connexion avant utilisation...")
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute('SELECT 1')
+            except:
+                logger.warning("La connexion a échoué, tentative de reconnexion...")
+                raise exc.DisconnectionError()
+            finally:
+                cursor.close()
 
-def run_tests():
-    """Exécuter tous les tests."""
-    print("🧪 Démarrage des tests des fonctionnalités utilisateurs v2")
-    print("=" * 60)
-    
-    # Créer une suite de tests
-    test_suite = unittest.TestSuite()
-    
-    # Ajouter tous les tests
-    test_suite.addTest(TestUserPredictionsV2('test_user_creation_and_identification'))
-    test_suite.addTest(TestUserPredictionsV2('test_user_predictions_persistence'))
-    test_suite.addTest(TestUserPredictionsV2('test_prediction_evaluation_and_errors'))
-    test_suite.addTest(TestUserPredictionsV2('test_ml_vs_user_performance_comparison'))
-    test_suite.addTest(TestUserPredictionsV2('test_multiple_users_no_interference'))
-    test_suite.addTest(TestUserPredictionsV2('test_user_display_names'))
-    
-    # Exécuter les tests
-    runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(test_suite)
-    
-    print("\n" + "=" * 60)
-    if result.wasSuccessful():
-        print("🎉 Tous les tests ont réussi !")
-        print("✅ Les fonctionnalités de prédictions utilisateurs v2 sont opérationnelles")
-    else:
-        print("❌ Certains tests ont échoué")
-        print(f"Échecs: {len(result.failures)}")
-        print(f"Erreurs: {len(result.errors)}")
-    
-    return result.wasSuccessful()
+    def create_schema_if_needed(self):
+        """
+        Assure que le schéma de la base de données est propre et à jour.
+        Cette méthode doit être appelée une seule fois par le processus principal au démarrage.
+        """
+        logger.info("Début de la configuration du schéma de la base de données...")
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    # Nettoyage complet des anciennes structures pour garantir un état propre
+                    logger.info("Nettoyage des anciennes tables et index pour garantir un état propre...")
+                    conn.execute(text("DROP TABLE IF EXISTS ml_models CASCADE;"))
+                    conn.execute(text("DROP TABLE IF EXISTS analysis_results CASCADE;"))
+                    conn.execute(text("DROP TABLE IF EXISTS predictions CASCADE;"))
+                    conn.execute(text("DROP TABLE IF EXISTS tirages CASCADE;"))
+                    conn.execute(text("DROP TABLE IF EXISTS users CASCADE;"))
+                    conn.execute(text("DROP TABLE IF EXISTS method_stats CASCADE;"))
+                    logger.info("Nettoyage terminé.")
 
-if __name__ == '__main__':
-    success = run_tests()
-    sys.exit(0 if success else 1)
+                    # --- ÉTAPE 1: CRÉATION DES TABLES ---
+                    logger.info("Création des tables...")
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"; CREATE EXTENSION IF NOT EXISTS \"pgcrypto\"; CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
+                    
+                    # Table tirages
+                    conn.execute(text("""
+                        CREATE TABLE tirages (
+                            id SERIAL PRIMARY KEY,
+                            date_tirage DATE NOT NULL UNIQUE,
+                            heure_tirage TIME,
+                            numeros INTEGER[] NOT NULL DEFAULT \'{}\':INTEGER[],
+                            multiplicateur INTEGER,
+                            joker VARCHAR(20),
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    
+                    # Table users (avec 'password' au lieu de 'password_hash')
+                    conn.execute(text("""
+                        CREATE TABLE users (
+                            id SERIAL PRIMARY KEY,
+                            username VARCHAR(50) UNIQUE NOT NULL,
+                            email VARCHAR(255) UNIQUE,
+                            password VARCHAR(255) NOT NULL, -- Changement ici: password au lieu de password_hash
+                            is_admin BOOLEAN DEFAULT FALSE,
+                            is_moderator BOOLEAN DEFAULT FALSE,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    
+                    # Table predictions
+                    conn.execute(text("""
+                        CREATE TABLE predictions (
+                            id SERIAL PRIMARY KEY,
+                            tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE,
+                            user_id VARCHAR(50) NOT NULL,
+                            method VARCHAR(100) NOT NULL,
+                            numeros INTEGER[] NOT NULL,
+                            session_id VARCHAR(255),
+                            confidence NUMERIC(5,4) DEFAULT 0.0,
+                            correct_count INTEGER DEFAULT 0,
+                            is_validated BOOLEAN DEFAULT FALSE,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    
+                    # Table method_stats (avec 'correct_predictions' et 'accuracy')
+                    conn.execute(text("""
+                        CREATE TABLE method_stats (
+                            id SERIAL PRIMARY KEY,
+                            method VARCHAR(100) UNIQUE NOT NULL,
+                            total_predictions INTEGER DEFAULT 0,
+                            correct_predictions INTEGER DEFAULT 0, -- Changement ici: correct_predictions
+                            accuracy FLOAT8 DEFAULT 0.0, -- Changement ici: accuracy
+                            last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    
+                    # Table analysis_results
+                    conn.execute(text("""
+                        CREATE TABLE analysis_results (
+                            id SERIAL PRIMARY KEY,
+                            tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE,
+                            analysis_type VARCHAR(50) NOT NULL,
+                            result_data JSONB,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            UNIQUE(tirage_id, analysis_type)
+                        )
+                    """))
+                    
+                    # Table ml_models (avec 's3_path' au lieu de 'weights', et sans 'is_active', 'parameters')
+                    conn.execute(text("""
+                        CREATE TABLE ml_models (
+                            id SERIAL PRIMARY KEY,
+                            model_name VARCHAR(100) NOT NULL,
+                            model_type VARCHAR(50) NOT NULL,
+                            model_binary BYTEA, -- MODIFICATION AJOUTÉE: Stocke le modèle binaire
+                            training_score NUMERIC(10,8),
+                            test_score NUMERIC(10,8),
+                            r2_score NUMERIC(10,8),
+                            training_time_seconds INTEGER,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            trained_at TIMESTAMP WITH TIME ZONE
+                        )
+                    """))
+                    logger.info("✅ Tables créées avec succès.")
+
+                    # --- ÉTAPE 2: CRÉATION DES INDEX ---
+                    logger.info("Création des index...")
+                    conn.execute(text("CREATE INDEX idx_tirages_date ON tirages(date_tirage DESC)"))
+                    conn.execute(text("CREATE INDEX idx_tirages_numeros ON tirages USING GIN(numeros)"))
+                    conn.execute(text("CREATE INDEX idx_users_username ON users(username)"))
+                    conn.execute(text("CREATE INDEX idx_users_email ON users(email)"))
+                    conn.execute(text("CREATE INDEX idx_predictions_user ON predictions(user_id)"))
+                    conn.execute(text("CREATE INDEX idx_predictions_method ON predictions(method)"))
+                    conn.execute(text("CREATE INDEX idx_predictions_created ON predictions(created_at DESC)"))
+                    conn.execute(text("CREATE INDEX idx_analysis_tirage ON analysis_results(tirage_id)"))
+                    logger.info("✅ Index créés avec succès.")
+
+                    # --- ÉTAPE 3: INSERTION DES DONNÉES INITIALES ---
+                    conn.execute(text("""
+                        INSERT INTO method_stats (method)
+                        VALUES (\'frequency_analysis\'), (\'monte_carlo\'), (\'ml_prediction\')
+                        ON CONFLICT (method) DO NOTHING
+                    """))
+                    logger.info("✅ Données initiales insérées.")
+            
+            logger.info("🎉 Schéma de la base de données configuré avec succès.")
+
+        except Exception as e:
+            logger.error(f"❌ Une erreur critique est survenue lors de la configuration du schéma : {e}")
+
+    def save_user(self, username, password, email=None):
+        """Sauvegarde un nouvel utilisateur avec un mot de passe en clair."""
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    result = conn.execute(text("""
+                        INSERT INTO users (username, password, email)
+                        VALUES (:username, :password, :email)
+                        RETURNING id
+                    """), {
+                        "username": username,
+                        "password": password,
+                        "email": email
+                    })
+                    user_id = result.fetchone()[0]
+                    logger.info(f"✅ Utilisateur \'{username}\' sauvegardé avec succès (ID: {user_id}).")
+                    return user_id
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la sauvegarde de l\'utilisateur \'{username}\': {e}")
+            return None
+
+    def get_user_by_username(self, username):
+        """Récupère un utilisateur par son nom d\'utilisateur."""
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT id, username, password, email, is_admin, is_moderator, created_at, last_active 
+                    FROM users 
+                    WHERE username = :username
+                """), {"username": username})
+                user = result.fetchone()
+                return dict(user._mapping) if user else None
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la récupération de l\'utilisateur \'{username}\': {e}")
+            return None
+
+    def save_prediction(self, user_id, method, numeros, confidence=0.0, session_id=None, tirage_id=None):
+        """Sauvegarde une prédiction dans la table predictions selon le schéma réel"""
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    result = conn.execute(text("""
+                        INSERT INTO predictions (user_id, method, numeros, confidence, session_id, tirage_id)
+                        VALUES (:user_id, :method, :numeros, :confidence, :session_id, :tirage_id)
+                        RETURNING id
+                    """), {
+                        "user_id": user_id,
+                        "method": method,
+                        "numeros": numeros,
+                        "confidence": confidence or 0.0,
+                        "session_id": session_id,
+                        "tirage_id": tirage_id
+                    })
+                    prediction_id = result.fetchone()[0]
+                    logger.info(f"✅ Prédiction sauvegardée: {user_id} - {method} (ID: {prediction_id})")
+                    return prediction_id
+
+        except Exception as e:
+            logger.error(f"❌ Erreur sauvegarde prédiction: {e}")
+            return None
+
+    def save_user_prediction(self, user_id, tirage_id, predicted_numbers, confidence_score, prediction_method):
+        """Sauvegarde une prédiction dans la table user_predictions selon le schéma réel"""
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    result = conn.execute(text("""
+                        INSERT INTO user_predictions (user_id, tirage_id, predicted_numbers, confidence_score, prediction_method)
+                        VALUES (:user_id, :tirage_id, :predicted_numbers, :confidence_score, :prediction_method)
+                        RETURNING id
+                    """), {
+                        "user_id": user_id,
+                        "tirage_id": tirage_id,
+                        "predicted_numbers": predicted_numbers,
+                        "confidence_score": confidence_score,
+                        "prediction_method": prediction_method
+                    })
+                    prediction_id = result.fetchone()[0]
+                    logger.info(f"✅ Prédiction utilisateur sauvegardée: {user_id} - {prediction_method} (ID: {prediction_id})")
+                    return prediction_id
+
+        except Exception as e:
+            logger.error(f"❌ Erreur sauvegarde prédiction utilisateur: {e}")
+            return None
+
+    def save_analysis_result(self, tirage_id, analysis_type, result_data):
+        """Sauvegarde un résultat d'analyse dans la table analysis_results"""
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    result = conn.execute(text("""
+                        INSERT INTO analysis_results (tirage_id, analysis_type, result_data)
+                        VALUES (:tirage_id, :analysis_type, :result_data)
+                        ON CONFLICT (tirage_id, analysis_type) DO UPDATE
+                        SET result_data = EXCLUDED.result_data,
+                            created_at = CURRENT_TIMESTAMP
+                        RETURNING id
+                    """), {
+                        "tirage_id": tirage_id,
+                        "analysis_type": analysis_type,
+                        "result_data": result_data
+                    })
+                    analysis_id = result.fetchone()[0]
+                    logger.info(f"✅ Résultat d'analyse sauvegardé: {analysis_type} pour tirage {tirage_id} (ID: {analysis_id})")
+                    return analysis_id
+
+        except Exception as e:
+            logger.error(f"❌ Erreur sauvegarde résultat d'analyse: {e}")
+            return None
+
+    def update_method_stats(self, method, total_predictions=None, correct_predictions=None, accuracy=None):
+        """Met à jour les statistiques d'une méthode dans la table method_stats"""
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    # Vérifier si la méthode existe
+                    existing = conn.execute(text("""
+                        SELECT id FROM method_stats WHERE method = :method
+                    """), {"method": method}).fetchone()
+                    
+                    if existing:
+                        # Mettre à jour
+                        update_fields = []
+                        params = {"method": method}
+                        
+                        if total_predictions is not None:
+                            update_fields.append("total_predictions = :total_predictions")
+                            params["total_predictions"] = total_predictions
+                        
+                        if correct_predictions is not None:
+                            update_fields.append("correct_predictions = :correct_predictions")
+                            params["correct_predictions"] = correct_predictions
+                        
+                        if accuracy is not None:
+                            update_fields.append("accuracy = :accuracy")
+                            params["accuracy"] = accuracy
+                        
+                        if update_fields:
+                            update_fields.append("last_updated = CURRENT_TIMESTAMP")
+                            query = f"UPDATE method_stats SET {', '.join(update_fields)} WHERE method = :method RETURNING id"
+                            result = conn.execute(text(query), params)
+                            stats_id = result.fetchone()[0]
+                            logger.info(f"✅ Statistiques mises à jour pour {method} (ID: {stats_id})")
+                            return stats_id
+                    else:
+                        # Créer nouvelle entrée
+                        result = conn.execute(text("""
+                            INSERT INTO method_stats (method, total_predictions, correct_predictions, accuracy)
+                            VALUES (:method, :total_predictions, :correct_predictions, :accuracy)
+                            RETURNING id
+                        """), {
+                            "method": method,
+                            "total_predictions": total_predictions or 0,
+                            "correct_predictions": correct_predictions or 0,
+                            "accuracy": accuracy or 0.0
+                        })
+                        stats_id = result.fetchone()[0]
+                        logger.info(f"✅ Nouvelles statistiques créées pour {method} (ID: {stats_id})")
+                        return stats_id
+
+        except Exception as e:
+            logger.error(f"❌ Erreur mise à jour statistiques méthode: {e}")
+            return None
+
+    def save_tirage(self, date_tirage, numeros, heure_tirage=None, multiplicateur=None, joker=None, **kwargs):
+        """Sauvegarde un tirage dans la base de données, en gérant plusieurs formats de date.
+        
+        Args:
+            date_tirage (str ou date): Date du tirage (format 'DD/MM/YYYY' ou 'YYYY-MM-DD' ou objet date)
+            numeros (list): Liste des numéros tirés
+            heure_tirage (str, optional): Heure du tirage. Par défaut None.
+            multiplicateur (int, optional): Multiplicateur de gains. Par défaut None.
+            joker (str, optional): Numéro joker. Par défaut None.
+            
+        Returns:
+            int: ID du tirage sauvegardé ou None en cas d'échec
+        """
+        last_exception = None
+        
+        # Gérer plusieurs formats de date de manière robuste
+        if isinstance(date_tirage, str):
+            try:
+                date_obj = datetime.strptime(date_tirage, '%d/%m/%Y').date()
+            except ValueError:
+                try:
+                    date_obj = datetime.strptime(date_tirage, '%Y-%m-%d').date()
+                except ValueError as ve:
+                    logger.error(f"Format de date non reconnu pour '{date_tirage}'. Utilisez 'DD/MM/YYYY' ou 'YYYY-MM-DD'.")
+                    return None
+        else:
+            date_obj = date_tirage
+        
+        for attempt in range(self.max_retries):
+            try:
+                # Vérifier si une reconnexion est nécessaire
+                if self.last_connection_time is None or (datetime.now() - self.last_connection_time).total_seconds() > 3600:  # 1 heure
+                    logger.info("Nouvelle connexion nécessaire (délai écoulé)")
+                    self.reconnect_engine()
+                
+                with self.engine.connect() as conn:
+                    # Début de la transaction
+                    with conn.begin():
+                        result = conn.execute(text("""
+                            INSERT INTO tirages (date_tirage, heure_tirage, numeros, multiplicateur, joker)
+                            VALUES (:date_tirage, :heure_tirage, :numeros, :multiplicateur, :joker)
+                            ON CONFLICT (date_tirage) DO UPDATE
+                            SET numeros = EXCLUDED.numeros,
+                                heure_tirage = EXCLUDED.heure_tirage,
+                                multiplicateur = EXCLUDED.multiplicateur,
+                                joker = EXCLUDED.joker,
+                                updated_at = CURRENT_TIMESTAMP
+                            RETURNING id
+                        """), {
+                            "date_tirage": date_obj, 
+                            "heure_tirage": heure_tirage, 
+                            "numeros": numeros,
+                            "multiplicateur": multiplicateur, 
+                            "joker": joker
+                        })
+                        
+                        tirage_id = result.fetchone()[0]
+                        logger.info(f"✅ Tirage du {date_obj.strftime('%d/%m/%Y')} sauvegardé (ID: {tirage_id})")
+                        return tirage_id
+                        
+            except Exception as e:
+                last_exception = e
+                if attempt == self.max_retries - 1:  # Dernière tentative
+                    logger.error(f"❌ Échec après {self.max_retries} tentatives de sauvegarde du tirage du {date_obj}")
+                    logger.error(f"Dernière erreur: {str(e)}")
+                    return None
+                
+                # Tenter une reconnexion en cas d'erreur de connexion
+                if isinstance(e, (exc.OperationalError, exc.InterfaceError, exc.DatabaseError)):
+                    logger.warning(f"⚠️ Erreur de connexion détectée: {str(e)}")
+                    try:
+                        self.reconnect_engine()
+                    except Exception as reconnect_error:
+                        logger.error(f"❌ Échec de la reconnexion: {str(reconnect_error)}")
+                
+                # Attente exponentielle avant une nouvelle tentative
+                wait_time = (2 ** attempt) * self.retry_delay
+                logger.warning(f"⚠️ Tentative {attempt + 1}/{self.max_retries} échouée. Nouvelle tentative dans {wait_time:.1f}s...")
+                time.sleep(wait_time)
+        
+        logger.error(f"❌ Échec critique de sauvegarde du tirage après {self.max_retries} tentatives")
+        if last_exception:
+            logger.error(f"Dernière erreur: {str(last_exception)}")
+        return None
+
+    def get_all_tirages(self, limit=100):
+        """Récupère la liste des tirages"""
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT id, date_tirage, heure_tirage, numeros, multiplicateur, joker, created_at, updated_at
+                    FROM tirages ORDER BY date_tirage DESC LIMIT :limit
+                """), {"limit": limit})
+                return [dict(row._mapping) for row in result.fetchall()]
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération tirages: {e}")
+            return []
+            
+    def get_system_predictions(self, limit=50):
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT id, user_id, method, numeros, confidence, created_at, correct_count, is_validated
+                    FROM predictions WHERE user_id = \'system\' ORDER BY created_at DESC LIMIT :limit
+                """), {"limit": limit})
+                return [dict(row._mapping) for row in result.fetchall()]
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération prédictions système: {e}")
+            return []
+
+    def get_user_predictions(self, session_id=None, limit=20):
+        try:
+            with self.engine.connect() as conn:
+                if session_id:
+                    query = text("""
+                        SELECT id, user_id, method, numeros, confidence, created_at, correct_count, is_validated
+                        FROM predictions WHERE user_id != \'system\' AND (session_id = :session_id OR user_id = :session_id)
+                        ORDER BY created_at DESC LIMIT :limit
+                    """)
+                    params = {"session_id": session_id, "limit": limit}
+                else:
+                    query = text("""
+                        SELECT id, user_id, method, numeros, confidence, created_at, correct_count, is_validated
+                        FROM predictions WHERE user_id != \'system\' ORDER BY created_at DESC LIMIT :limit
+                    """)
+                    params = {"limit": limit}
+                result = conn.execute(query, params)
+                return [dict(row._mapping) for row in result.fetchall()]
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération prédictions utilisateur: {e}")
+            return []
+            
+    def get_user_by_email(self, email: str) -> dict:
+        """
+        Récupère un utilisateur par son adresse email.
+        
+        Args:
+            email (str): L'adresse email de l'utilisateur à rechercher
+            
+        Returns:
+            dict: Les informations de l'utilisateur ou None si non trouvé
+        """
+        try:
+            with self.engine.connect() as connection:
+                result = connection.execute(
+                    text("""
+                        SELECT id, username, email, password, is_active, is_admin, is_moderator,
+                               created_at, updated_at
+                        FROM users 
+                        WHERE email = :email
+                    """),
+                    {'email': email}
+                ).fetchone()
+                
+                if result:
+                    return dict(result._mapping)
+                return None
+                
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération de l'utilisateur par email: {e}")
+            raise
 
