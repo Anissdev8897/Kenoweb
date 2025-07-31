@@ -13,10 +13,11 @@ class AuthSystem:
     """Système d'authentification PostgreSQL ONLY (fallback JSON supprimé)"""
     
     def __init__(self):
-        self.database_url = os.environ.get(
-            "DATABASE_URL", 
-            "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92"
-        )
+        # Utiliser uniquement la variable d'environnement, sans valeur par défaut
+        self.database_url = os.environ.get("DATABASE_URL")
+        if not self.database_url:
+            logger.error("La variable d'environnement DATABASE_URL n'est pas définie")
+            raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
         self.use_postgresql = True
     
     def _test_postgresql_connection(self):

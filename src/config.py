@@ -1,11 +1,12 @@
 import os
 
 # Configuration de la base de données
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
+
 DATABASE_CONFIG = {
-    'postgresql_url': os.environ.get(
-        "DATABASE_URL", 
-        "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92"
-    ),
+    'postgresql_url': DATABASE_URL,
     'fallback_json_path': os.path.join(os.path.dirname(__file__), 'data', 'users.json'),
     'backup_json_path': os.path.join(os.path.dirname(__file__), 'data', 'users_backup.json')
 }
