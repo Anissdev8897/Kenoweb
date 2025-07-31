@@ -21,12 +21,11 @@ class PostgreSQLManager:
         Chaque instance gère son propre pool de connexions.
         """
         logger.info("Initialisation d'une nouvelle instance de PostgreSQLManager...")
-        self.database_url = os.environ.get(
-            "DATABASE_URL",
-            "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92"
-        )
+        # Utiliser uniquement la variable d'environnement, sans valeur par défaut
+        self.database_url = os.environ.get("DATABASE_URL")
         if not self.database_url:
-            raise ValueError("DATABASE_URL environment variable not set and no fallback URL provided.")
+            logger.error("La variable d'environnement DATABASE_URL n'est pas définie")
+            raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
         
         # Configuration SSL avancée pour Render avec reconnexion
         self.connect_args = {
