@@ -219,19 +219,33 @@ class PostgreSQLManager:
                         )
                     """))
                     
-                    # Table ml_models (avec 's3_path' au lieu de 'weights', et sans 'is_active', 'parameters')
+                    # Table ml_models avec métadonnées
                     conn.execute(text("""
                         CREATE TABLE IF NOT EXISTS ml_models (
                             id SERIAL PRIMARY KEY,
                             model_name VARCHAR(100) NOT NULL,
                             model_type VARCHAR(50) NOT NULL,
-                            model_binary BYTEA, -- MODIFICATION AJOUTÉE: Stocke le modèle binaire
+                            model_binary BYTEA,
                             training_score NUMERIC(10,8),
                             test_score NUMERIC(10,8),
                             r2_score NUMERIC(10,8),
                             training_time_seconds INTEGER,
+                            metadata JSONB,  -- Ajout de la colonne metadata
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                            trained_at TIMESTAMP WITH TIME ZONE
+                            trained_at TIMESTAMP WITH TIME ZONE,
+                            version VARCHAR(50)  -- Ajout d'un champ version
+                        )
+                    """))
+                    
+                    # Table model_metrics avec clé étrangère vers ml_models
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS model_metrics (
+                            id SERIAL PRIMARY KEY,
+                            model_id INTEGER REFERENCES ml_models(id) ON DELETE CASCADE,
+                            metric_name VARCHAR(100) NOT NULL,
+                            metric_value NUMERIC(10,8) NOT NULL,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            UNIQUE(model_id, metric_name)
                         )
                     """))
                     logger.info("✅ Tables créées avec succès.")
@@ -558,6 +572,121 @@ class PostgreSQLManager:
             logger.error(f"❌ Erreur récupération prédictions utilisateur: {e}")
             return []
             
+    def save_ml_model(self, model_name: str, model_type: str, model_binary: bytes, 
+                     training_score: float = None, test_score: float = None, 
+                     r2_score: float = None, training_time_seconds: int = None,
+                     metadata: dict = None, version: str = '1.0') -> int:
+        """
+        Sauvegarde un modèle ML dans la base de données.
+        
+        Args:
+            model_name (str): Nom du modèle
+            model_type (str): Type de modèle (ex: 'random_forest', 'neural_network')
+            model_binary (bytes): Données binaires du modèle sérialisé
+            training_score (float, optional): Score sur l'ensemble d'entraînement
+            test_score (float, optional): Score sur l'ensemble de test
+            r2_score (float, optional): Score R² du modèle
+            training_time_seconds (int, optional): Temps d'entraînement en secondes
+            metadata (dict, optional): Métadonnées supplémentaires du modèle
+            version (str, optional): Version du modèle (défaut: '1.0')
+            
+        Returns:
+            int: L'ID du modèle sauvegardé ou None en cas d'erreur
+        """
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    result = conn.execute(text("""
+                        INSERT INTO ml_models (
+                            model_name, model_type, model_binary, training_score,
+                            test_score, r2_score, training_time_seconds,
+                            metadata, version, trained_at
+                        ) VALUES (
+                            :model_name, :model_type, :model_binary, :training_score,
+                            :test_score, :r2_score, :training_time_seconds,
+                            :metadata, :version, CURRENT_TIMESTAMP
+                        )
+                        RETURNING id
+                    """), {
+                        'model_name': model_name,
+                        'model_type': model_type,
+                        'model_binary': model_binary,
+                        'training_score': training_score,
+                        'test_score': test_score,
+                        'r2_score': r2_score,
+                        'training_time_seconds': training_time_seconds,
+                        'metadata': metadata,
+                        'version': version
+                    })
+                    
+                    model_id = result.scalar()
+                    logger.info(f"✅ Modèle ML '{model_name}' sauvegardé avec l'ID: {model_id}")
+                    return model_id
+                    
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la sauvegarde du modèle ML: {e}")
+            return None
+
+    def get_ml_model(self, model_id: int):
+        """
+        Récupère un modèle ML par son ID.
+        
+        Args:
+            model_id (int): ID du modèle à récupérer
+            
+        Returns:
+            dict: Les données du modèle ou None si non trouvé
+        """
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT * FROM ml_models WHERE id = :model_id
+                """), {'model_id': model_id})
+                
+                row = result.fetchone()
+                if row:
+                    return dict(row._mapping)
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la récupération du modèle ML: {e}")
+            return None
+
+    def get_latest_ml_model(self, model_type: str = None):
+        """
+        Récupère le dernier modèle ML entraîné.
+        
+        Args:
+            model_type (str, optional): Type de modèle à filtrer
+            
+        Returns:
+            dict: Les données du modèle ou None si non trouvé
+        """
+        try:
+            with self.engine.connect() as conn:
+                query = """
+                    SELECT * FROM ml_models 
+                    WHERE trained_at IS NOT NULL
+                """
+                params = {}
+                
+                if model_type:
+                    query += " AND model_type = :model_type"
+                    params['model_type'] = model_type
+                    
+                query += " ORDER BY trained_at DESC LIMIT 1"
+                
+                result = conn.execute(text(query), params)
+                row = result.fetchone()
+                
+                if row:
+                    return dict(row._mapping)
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la récupération du dernier modèle ML: {e}")
+            return None
+
     def get_user_by_email(self, email: str) -> dict:
         """
         Récupère un utilisateur par son adresse email.
