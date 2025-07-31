@@ -14,6 +14,8 @@ import time
 import schedule
 from datetime import datetime, timedelta
 from pathlib import Path
+from flask import Flask, render_template, render_template_string
+
 
 # Charger les variables d'environnement depuis .env
 from dotenv import load_dotenv

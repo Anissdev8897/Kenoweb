@@ -98,6 +98,77 @@ try:
         count = cursor.fetchone()['count']
         safe_print(f"\nNombre d'utilisateurs dans la table: {count}")
         
+        # Vérifier la table ml_models
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_name = 'ml_models'
+        """)
+        
+        ml_models_table_exists = cursor.fetchone() is not None
+        safe_print(f"\nLa table 'ml_models' existe: {ml_models_table_exists}")
+        
+        if ml_models_table_exists:
+            # Afficher la structure de la table ml_models
+            cursor.execute("""
+                SELECT column_name, data_type, is_nullable, column_default
+                FROM information_schema.columns
+                WHERE table_name = 'ml_models'
+                ORDER BY ordinal_position
+            """)
+            
+            safe_print("\nStructure de la table 'ml_models':")
+            safe_print("-" * 80)
+            safe_print(f"{'Colonne':<25} {'Type':<20} {'Nullable':<10} {'Default'}")
+            safe_print("-" * 80)
+            
+            for col in cursor.fetchall():
+                default = str(col['column_default'] or '')
+                if 'nextval' in default:
+                    default = 'SERIAL'
+                safe_print(f"{col['column_name']:<25} {col['data_type']:<20} {col['is_nullable']:<10} {default}")
+            
+            # Vérifier la présence de la colonne model_binary
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'ml_models' AND column_name = 'model_binary'
+            """)
+            
+            has_model_binary = cursor.fetchone() is not None
+            safe_print(f"\nLa colonne 'model_binary' existe: {has_model_binary}")
+            
+            if not has_model_binary:
+                safe_print("\nATTENTION: La colonne 'model_binary' est manquante dans la table 'ml_models'.")
+                safe_print("Cette colonne est nécessaire pour stocker les modèles ML.")
+                safe_print("\nPour ajouter la colonne, exécutez la commande SQL suivante:")
+                safe_print("""
+ALTER TABLE ml_models 
+ADD COLUMN IF NOT EXISTS model_binary BYTEA,
+ADD COLUMN IF NOT EXISTS metadata JSONB;
+                """)
+            
+            # Compter le nombre de modèles
+            cursor.execute("SELECT COUNT(*) as count FROM ml_models")
+            count = cursor.fetchone()['count']
+            safe_print(f"\nNombre de modèles dans la table: {count}")
+            
+            if count > 0:
+                # Afficher un aperçu des modèles (sans les données binaires)
+                cursor.execute("""
+                    SELECT id, model_name, model_type, training_score, 
+                           test_score, is_active, trained_at
+                    FROM ml_models 
+                    ORDER BY id 
+                    LIMIT 3
+                """)
+                
+                safe_print("\nAperçu des modèles (sans données binaires):")
+                for model in cursor.fetchall():
+                    safe_print(f"\n- ID: {model['id']}, {model['model_name']} ({model['model_type']})")
+                    safe_print(f"  Score entraînement: {model['training_score']:.4f}, Score test: {model['test_score']:.4f}")
+                    safe_print(f"  Actif: {model['is_active']}, Entraîné le: {model['trained_at']}")
+        
         # Afficher les premiers utilisateurs (sans les mots de passe)
         if count > 0:
             cursor.execute("SELECT id, username, email, is_admin, is_moderator, is_active FROM users ORDER BY id ASC LIMIT 5")

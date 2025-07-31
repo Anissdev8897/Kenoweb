@@ -96,6 +96,45 @@ def main():
                     print(f"- ID: {user_id}, {username} ({email})")
                     print(f"  Admin: {is_admin}, Actif: {is_active}")
         
+        # Vérifier la table ml_models
+        if 'ml_models' in tables:
+            print("\n=== TABLE ML_MODELS ===")
+            
+            # Colonnes
+            cursor.execute("""
+                SELECT column_name, data_type, is_nullable, column_default
+                FROM information_schema.columns 
+                WHERE table_name = 'ml_models'
+                ORDER BY ordinal_position
+            """)
+            
+            print("\nColonnes:")
+            for col_name, col_type, is_nullable, col_default in cursor.fetchall():
+                default_info = f" (défaut: {col_default})" if col_default else ""
+                print(f"- {col_name}: {col_type} {'NULL' if is_nullable == 'YES' else 'NOT NULL'}{default_info}")
+            
+            # Nombre de modèles
+            cursor.execute("SELECT COUNT(*) FROM ml_models")
+            model_count = cursor.fetchone()[0]
+            print(f"\nNombre total de modèles: {model_count}")
+            
+            # Afficher quelques modèles (sans le binaire)
+            if model_count > 0:
+                cursor.execute("""
+                    SELECT id, model_name, model_type, training_score, 
+                           test_score, is_active, trained_at
+                    FROM ml_models 
+                    ORDER BY id 
+                    LIMIT 3
+                """)
+                
+                print("\nQuelques modèles (sans données binaires):")
+                for model in cursor.fetchall():
+                    model_id, name, mtype, train_score, test_score, is_active, trained_at = model
+                    print(f"- ID: {model_id}, {name} ({mtype})")
+                    print(f"  Score entraînement: {train_score:.4f}, Score test: {test_score:.4f}")
+                    print(f"  Actif: {is_active}, Entraîné le: {trained_at}")
+        
         # Vérifier les autres tables importantes
         for table in ['tirages', 'predictions', 'user_predictions']:
             if table in tables:
