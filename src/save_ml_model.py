@@ -122,7 +122,7 @@ def create_table_and_insert_model():
             # Un modèle factice plus réaliste (séquence d'octets plus longue)
             dummy_model_binary = bytes([i % 256 for i in range(1000)])
             
-            # Données du modèle
+            # Données du modèle mises à jour pour correspondre à la structure de la table
             model_data = {
                 'model_name': 'KenoPredictorV1',
                 'model_type': 'RandomForestClassifier',
@@ -132,7 +132,7 @@ def create_table_and_insert_model():
                 'r2_score': 0.78901234,
                 'training_time_seconds': 3600,
                 'trained_at': datetime.now(),
-                'is_active': True,
+                's3_path': 'models/keno_predictor_v1.pkl',  # Chemin S3 pour le stockage du modèle
                 'metadata': {
                     'version': '1.0', 
                     'author': 'Manus',
@@ -142,7 +142,8 @@ def create_table_and_insert_model():
                         'n_estimators': 100,
                         'max_depth': 10,
                         'random_state': 42
-                    }
+                    },
+                    'status': 'active'  # Statut déplacé dans les métadonnées
                 }
             }
 
@@ -158,16 +159,16 @@ def create_table_and_insert_model():
                     logger.debug(f"  {key}: {len(value)} octets de données binaires")
             
             try:
-                # Préparer la requête SQL
+                # Préparer la requête SQL mise à jour pour correspondre à la structure de la table
                 sql = """
                     INSERT INTO ml_models (
                         model_name, model_type, model_binary, training_score, 
                         test_score, r2_score, training_time_seconds, 
-                        trained_at, is_active, metadata
+                        trained_at, metadata, s3_path
                     ) VALUES (
                         %(model_name)s, %(model_type)s, %(model_binary)s, %(training_score)s, 
                         %(test_score)s, %(r2_score)s, %(training_time_seconds)s, 
-                        %(trained_at)s, %(is_active)s, %(metadata)s
+                        %(trained_at)s, %(metadata)s, %(s3_path)s
                     )
                     RETURNING id
                 """
