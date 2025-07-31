@@ -822,14 +822,14 @@ def admin_dashboard():
         
     # Récupérer les statistiques d'utilisation
     stats = {
-        'total_users': db.get_user_count(),
-        'total_predictions': len(db.get_all_predictions()),
-        'active_users': db.get_active_user_count()
+        'total_users': db_manager.get_user_count() if db_manager else 0,
+        'total_predictions': len(db_manager.get_all_predictions()) if db_manager else 0,
+        'active_users': db_manager.get_active_user_count() if db_manager else 0
     }
     
     # Récupérer le dernier entraînement si disponible
     try:
-        training_runs = db.get_training_runs(limit=1)
+        training_runs = db_manager.get_training_runs(limit=1) if db_manager else []
         if training_runs:
             stats['last_training_run'] = training_runs[0]
     except Exception as e:
