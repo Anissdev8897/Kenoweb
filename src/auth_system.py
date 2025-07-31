@@ -1,9 +1,12 @@
 import os
 import logging
+import bcrypt
 import hashlib
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 import uuid
+from functools import wraps
+from flask import session, redirect, url_for, flash
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -79,14 +82,25 @@ class AuthSystem:
         except Exception as e:
             logger.error(f"Erreur structure PostgreSQL: {e}")
     
-    def _hash_password(self, password: str) -> str:
-        """Retourner le mot de passe en clair (pas de hash, non sécurisé)"""
-        return password
-
+    def _hash_password(self, password: str) -> Tuple[bytes, bytes]:
+        """Hache le mot de passe avec bcrypt"""
+        # Générer un sel et hacher le mot de passe
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        return hashed, salt
     
-    def _verify_password(self, password: str, password_db: str) -> bool:
-        """Vérifier le mot de passe en clair (non sécurisé)"""
-        return password == password_db
+    def _verify_password(self, password: str, hashed_password: str) -> bool:
+        """Vérifie le mot de passe avec bcrypt"""
+        if not password or not hashed_password:
+            return False
+        try:
+            # Si le mot de passe haché est stocké comme chaîne, le convertir en bytes
+            if isinstance(hashed_password, str):
+                hashed_password = hashed_password.encode('utf-8')
+            return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
+        except Exception as e:
+            logger.error(f"Erreur lors de la vérification du mot de passe: {e}")
+            return False
 
     
     def create_user(self, user_data: Dict[str, Any]) -> Optional[str]:
@@ -111,6 +125,7 @@ class AuthSystem:
             return None
     
     def _create_user_postgresql(self, user_id: str, username: str, email: str, password: str, is_admin: bool, is_moderator: bool) -> Optional[str]:
+        """Crée un utilisateur dans PostgreSQL avec mot de passe haché"""
         """Créer un utilisateur dans PostgreSQL avec vérification unicité email"""
         try:
             import psycopg2
@@ -118,30 +133,33 @@ class AuthSystem:
             conn = psycopg2.connect(self.database_url)
             cursor = conn.cursor()
             
-            # Vérifier l'unicité de l'email
-            cursor.execute("SELECT COUNT(*) FROM users WHERE email = %s", (email,))
-            email_exists = cursor.fetchone()[0] > 0
-            
-            if email_exists:
-                cursor.close()
-                conn.close()
-                logger.error(f"Email déjà utilisé: {email}")
-                return None
-            
-            # Vérifier l'unicité du username
-            cursor.execute("SELECT COUNT(*) FROM users WHERE username = %s", (username,))
-            username_exists = cursor.fetchone()[0] > 0
-            
-            if username_exists:
-                cursor.close()
-                conn.close()
-                logger.error(f"Username déjà utilisé: {username}")
-                return None
-            
+            # Vérifier l'unicité de l'email et du username en une seule requête
             cursor.execute("""
-                INSERT INTO users (username, email, password, is_admin, is_moderator)
-                VALUES (%s, %s, %s, %s, %s) RETURNING id
-            """, (username, email, password, is_admin, is_moderator))
+                SELECT 
+                    EXISTS(SELECT 1 FROM users WHERE email = %s) as email_exists,
+                    EXISTS(SELECT 1 FROM users WHERE username = %s) as username_exists
+            """, (email, username))
+            
+            email_exists, username_exists = cursor.fetchone()
+            
+            if email_exists or username_exists:
+                cursor.close()
+                conn.close()
+                if email_exists:
+                    logger.error(f"Email déjà utilisé: {email}")
+                if username_exists:
+                    logger.error(f"Username déjà utilisé: {username}")
+                return None
+            
+            # Hacher le mot de passe
+            hashed_password, _ = self._hash_password(password)
+            
+            # Créer l'utilisateur avec le mot de passe haché
+            cursor.execute("""
+                INSERT INTO users (username, email, password, is_admin, is_moderator, is_active, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                RETURNING id
+            """, (username, email, hashed_password.decode('utf-8'), is_admin, is_moderator))
             
             user_id = cursor.fetchone()[0]
             conn.commit()
@@ -169,21 +187,27 @@ class AuthSystem:
     
     def _authenticate_postgresql(self, username: str, password: str) -> Optional[Dict[str, Any]]:
         """Authentifier avec PostgreSQL"""
+        if not username or not password:
+            return None
+            
         try:
             import psycopg2
             from psycopg2.extras import RealDictCursor
             conn = psycopg2.connect(self.database_url)
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             
+            # Récupérer l'utilisateur avec son mot de passe haché
             cursor.execute("""
-                SELECT id, username, email, password, is_admin, is_moderator
-                FROM users WHERE username = %s
+                SELECT id, username, email, password, is_admin, is_moderator, is_active
+                FROM users 
+                WHERE username = %s AND is_active = TRUE
             """, (username,))
             
             user = cursor.fetchone()
             cursor.close()
             conn.close()
             
+            # Vérifier si l'utilisateur existe et que le mot de passe est correct
             if user and self._verify_password(password, user['password']):
                 logger.info(f"Authentification PostgreSQL réussie: {username}")
                 return {
@@ -194,6 +218,8 @@ class AuthSystem:
                     'is_moderator': user['is_moderator']
                 }
             
+            # Journaliser les échecs de connexion (sans le mot de passe)
+            logger.warning(f"Échec d'authentification pour l'utilisateur: {username}")
             return None
             
         except Exception as e:
