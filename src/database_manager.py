@@ -17,11 +17,6 @@ import psycopg2
 from sqlalchemy import create_engine, text
 import pandas as pd
 
-# Récupération de l'URL de la base de données depuis les variables d'environnement
-database_url = os.environ.get("DATABASE_URL")
-if not database_url:
-    logger.error("La variable d'environnement DATABASE_URL n'est pas définie")
-    raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
 
 logger = logging.getLogger(__name__)
 
