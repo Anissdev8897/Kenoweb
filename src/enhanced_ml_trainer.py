@@ -20,8 +20,12 @@ import json
 from enhanced_database_manager import EnhancedDatabaseManagerV2
 
 logger = logging.getLogger(__name__)
-database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92")
 
+# Vérification de la variable d'environnement DATABASE_URL
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    logger.error("La variable d'environnement DATABASE_URL n'est pas définie")
+    raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
 
 class EnhancedMLTrainerV2:
     def __init__(self):

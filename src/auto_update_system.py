@@ -492,10 +492,11 @@ class AutoUpdateSystem:
             import os
             
             # Configuration de la base de données
-            database_url = os.environ.get(
-                "DATABASE_URL", 
-                "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92"
-            )
+            database_url = os.environ.get("DATABASE_URL")
+            if not database_url:
+                logger.error("La variable d'environnement DATABASE_URL n'est pas définie")
+                return False
+                
             engine = create_engine(database_url)
             
             # Préparer les métadonnées du modèle

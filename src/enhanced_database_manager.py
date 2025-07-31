@@ -15,11 +15,16 @@ from datetime import datetime, date, time as dt_time
 import numpy as np
 import uuid
 import hashlib
-import stat  # Ajoute ce import nécessaire
+import stat  # Ajout nécessaire
 
-database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92")
-
+# Configuration du logger
 logger = logging.getLogger(__name__)
+
+# Vérification de la variable d'environnement DATABASE_URL
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    logger.error("La variable d'environnement DATABASE_URL n'est pas définie")
+    raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
 
 class EnhancedDatabaseManagerV2:
     def __init__(self):

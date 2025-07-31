@@ -17,8 +17,10 @@ import time
 from enhanced_database_manager import EnhancedDatabaseManagerV2
 from enhanced_ml_trainer import EnhancedMLTrainerV2
 
-database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92")
-
+# Vérification de la variable d'environnement DATABASE_URL
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)

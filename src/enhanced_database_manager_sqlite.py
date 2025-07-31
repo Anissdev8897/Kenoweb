@@ -18,8 +18,14 @@ import hashlib
 
 logger = logging.getLogger(__name__)
 
-database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92")
-KEY_PATH = "/root/.ssh/id_rsa"
+# Configuration de la base de données par défaut pour SQLite
+DEFAULT_SQLITE_URL = "sqlite:///kenoweb_v2.db"
+
+# Récupération de l'URL de la base de données depuis les variables d'environnement
+database_url = os.environ.get("DATABASE_URL", DEFAULT_SQLITE_URL)
+
+# Chemin de la clé SSH (à adapter selon l'environnement)
+KEY_PATH = os.environ.get("SSH_KEY_PATH", "/root/.ssh/id_rsa")
 
 class EnhancedDatabaseManagerV2SQLite:
     def __init__(self):

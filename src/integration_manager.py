@@ -16,10 +16,14 @@ from enhanced_database_manager import EnhancedDatabaseManagerV2, get_enhanced_da
 from enhanced_s3_manager import EnhancedS3StorageManager
 from enhanced_ml_trainer import EnhancedMLTrainerV2
 
-database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92")
-
-
+# Configuration du logger
 logger = logging.getLogger(__name__)
+
+# Vérification de la variable d'environnement DATABASE_URL
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    logger.error("La variable d'environnement DATABASE_URL est requise")
+    raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
 
 class KenoIntegrationManager:
     """Gestionnaire principal pour l'intégration complète du système Keno"""

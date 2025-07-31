@@ -12,10 +12,18 @@ from typing import Dict, Any
 
 # Configuration de la base de données
 def get_database_url():
-    return os.environ.get(
-        "DATABASE_URL", 
-        "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92"
-    )
+    """Récupère l'URL de la base de données depuis les variables d'environnement.
+    
+    Returns:
+        str: L'URL de la base de données
+        
+    Raises:
+        ValueError: Si la variable d'environnement DATABASE_URL n'est pas définie
+    """
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise ValueError("La variable d'environnement DATABASE_URL est requise pour se connecter à la base de données")
+    return database_url
 
 def create_table_and_insert_model():
     """Créer la table ml_models et insérer un modèle"""
@@ -59,10 +67,22 @@ def create_table_and_insert_model():
                 'metadata': {'version': '1.0', 'author': 'Manus'}
             }
 
-            connection.execute(text("""
-                INSERT INTO ml_models (model_name, model_type, model_binary, training_score, test_score, r2_score, training_time_seconds, trained_at, is_active, metadata)
-                VALUES (:model_name, :model_type, :model_binary, :training_score, :test_score, :r2_score, :training_time_seconds, :trained_at, :is_active, :metadata)
-            """), model_data)            connection.commit()
+            # Exécution de la requête d'insertion
+            connection.execute(
+                text("""
+                    INSERT INTO ml_models (
+                        model_name, model_type, model_binary, training_score, 
+                        test_score, r2_score, training_time_seconds, 
+                        trained_at, is_active, metadata
+                    ) VALUES (
+                        :model_name, :model_type, :model_binary, :training_score, 
+                        :test_score, :r2_score, :training_time_seconds, 
+                        :trained_at, :is_active, :metadata
+                    )
+                """), 
+                model_data
+            )
+            connection.commit()
             print("✅ Modèle KenoPredictorV1 inséré avec succès dans la table ml_models.")
             print(f"   - Model: {model_data['model_name']}")
             print(f"   - Type: {model_data['model_type']}")

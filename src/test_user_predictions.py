@@ -43,9 +43,13 @@ if not prepare_ssh_key():
 # Ajouter le répertoire src au path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Configuration pour utiliser SQLite en test
-database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92")
+# Vérification de la variable d'environnement DATABASE_URL
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    logger.error("La variable d'environnement DATABASE_URL est requise pour exécuter les tests")
+    sys.exit(1)
 
+# Import des dépendances après configuration de l'environnement
 from enhanced_database_manager import EnhancedDatabaseManagerV2
 from enhanced_ml_trainer import EnhancedMLTrainerV2
 

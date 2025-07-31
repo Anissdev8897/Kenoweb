@@ -8,7 +8,12 @@ import os
 import sys
 from datetime import datetime, date
 
-database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92")
+# Vérification de la variable d'environnement DATABASE_URL
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    print("❌ La variable d'environnement DATABASE_URL est requise pour exécuter les tests")
+    sys.exit(1)
+
 def test_final_functionality():
     """Test final complet des fonctionnalités."""
     print("🧪 Test final des fonctionnalités utilisateurs v2")

@@ -1,14 +1,9 @@
 import boto3
 import joblib
-import pickle
-import io
 import os
-from datetime import datetime
 import logging
 
-database_url = os.environ.get("DATABASE_URL", "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92")
-
-
+# Configuration du logger
 logger = logging.getLogger(__name__)
 
 class S3StorageManager:

@@ -16,11 +16,16 @@ logger = logging.getLogger(__name__)
 def test_database_connection():
     """Tester la connexion à la base de données PostgreSQL"""
     
-    # URL de connexion
-    database_url = "postgresql://kenos_user:qYGSudoftPvnoxaT9Seh5IP4itP1kK0a@dpg-d1umeoer433s73eu3d7g-a.frankfurt-postgres.render.com/kenos_vs92"
+    # Récupérer l'URL de connexion depuis les variables d'environnement
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        logger.error("La variable d'environnement DATABASE_URL n'est pas définie")
+        print("ERREUR: La variable d'environnement DATABASE_URL est requise")
+        return False
     
     try:
         logger.info("Test de connexion à la base de données...")
+        logger.info(f"URL de la base de données: {database_url[:30]}...")  # Ne pas logger l'URL complète pour des raisons de sécurité
         
         # Connexion à la base de données
         conn = psycopg2.connect(database_url)
