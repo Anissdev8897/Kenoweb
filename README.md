@@ -1,66 +1,115 @@
-# 🎯 Keno Analyzer Pro - Guide de Déploiement 
+# 🎯 Keno Analyzer Pro - Plateforme d'Analyse Keno avec IA
+
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-2.0+-green.svg)](https://flask.palletsprojects.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue.svg)](https://www.postgresql.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Description
 
 Keno Analyzer Pro est une application web complète d'analyse des tirages Keno avec intelligence artificielle. L'application utilise Flask comme backend et propose plusieurs méthodes d'analyse avancées.
 
-## Fonctionnalités
+## ✨ Fonctionnalités Avancées
 
-- ✅ **8 méthodes d'analyse** : Fréquences, Écarts, Cycles, Mixte, Machine Learning, Fibonacci, Sommes, Analyse Complète
-- ✅ **Interface moderne** : Design responsive avec grille interactive
-- ✅ **Statistiques en temps réel** : Suivi des performances de chaque méthode
-- ✅ **Historique des prédictions** : Sauvegarde et suivi des résultats
-- ✅ **Simulation de résultats** : Test et apprentissage automatique
-- ✅ **API REST complète** : Endpoints pour toutes les fonctionnalités
-- ✅ **Données réelles** : Plus de 4800 tirages historiques inclus
+### 🔍 Analyse Avancée
+- **Méthodes d'analyse** : 8 méthodes intégrées (Fréquences, Écarts, Cycles, Mixte, Machine Learning, Fibonacci, Sommes, Analyse Complète)
+- **Analyse des finales** : Détection des motifs de numéros finaux
+- **Analyse des écarts** : Identification des tendances basées sur les écarts entre les numéros
+- **Analyse temporelle** : Suivi des performances par jour de la semaine et heure
+- **Simulations Monte Carlo** : Prédictions basées sur des milliers de simulations
 
-## Structure du Projet
+### 🎨 Interface Utilisateur
+- **Tableau de bord interactif** : Visualisation des données en temps réel
+- **Système d'authentification** : Comptes utilisateurs sécurisés
+- **Espace administrateur** : Gestion complète des utilisateurs et des modèles
+- **Design responsive** : Compatible mobile et desktop
+- **Thème sombre/clair** : Confort visuel personnalisable
+
+### 🤖 Intelligence Artificielle
+- **Modèles ML entraînables** : Random Forest, Réseaux de Neurones
+- **Métriques détaillées** : Précision, Rappel, F1-Score
+- **Historique des entraînements** : Suivi des performances des modèles
+- **Auto-optimisation** : Ajustement automatique des hyperparamètres
+- **Sélection de caractéristiques** : Identification des facteurs les plus prédictifs
+
+## 🗂 Structure du Projet
 
 ```
-keno-web-app/
+keno-analyzer/
 ├── src/
-│   ├── main.py              # Application Flask principale
-│   ├── tirages_keno.csv     # Données des tirages historiques
-│   └── static/
-│       └── index.html       # Interface utilisateur
-├── requirements.txt         # Dépendances Python
-├── README.md               # Ce fichier
-└── DEPLOYMENT_GUIDE.md    # Guide de déploiement détaillé
+│   ├── main.py                     # Application Flask principale
+│   ├── database_manager_postgresql.py  # Gestionnaire de base de données
+│   ├── auth_system.py              # Système d'authentification
+│   ├── keno_*_analysis.py          # Modules d'analyse avancée
+│   ├── static/
+│   │   ├── css/                   # Feuilles de style
+│   │   ├── js/                    # Scripts JavaScript
+│   │   └── img/                   # Images et ressources
+│   └── templates/
+│       ├── admin/                 # Vues administrateur
+│       ├── auth/                  # Vues d'authentification
+│       └── *.html                 # Templates principaux
+├── requirements.txt               # Dépendances Python
+├── README.md                      # Ce fichier
+└── .env.example                   # Exemple de configuration
 ```
 
-## Prérequis
+## ⚙️ Prérequis
 
-- Python 3.8+
-- Hébergement web compatible Python/Flask (OVH Web Hosting Pro ou supérieur)
-- Accès SSH ou interface de gestion de fichiers
+- **Python 3.8+** avec pip
+- **PostgreSQL 13+**
+- **Compte SendGrid** (pour la réinitialisation des mots de passe)
+- **Variables d'environnement** (voir `.env.example`)
+  - `DATABASE_URL` : URL de connexion PostgreSQL
+  - `SECRET_KEY` : Clé secrète pour les sessions
+  - `SENDGRID_API_KEY` : Clé API SendGrid (optionnel)
+  - `FLASK_ENV` : Environnement (development/production)
 
-## Installation Locale (Test)
+## 🚀 Installation Locale
 
-1. **Cloner/Extraire le projet**
+1. **Cloner le dépôt**
    ```bash
-   cd keno-web-app
+   git clone [URL_DU_DEPOT]
+   cd keno-analyzer
    ```
 
-2. **Créer un environnement virtuel**
+2. **Configurer l'environnement**
    ```bash
-   python3 -m venv venv
+   # Copier le fichier d'exemple
+   cp .env.example .env
+   
+   # Créer et activer l'environnement virtuel
+   python -m venv venv
    source venv/bin/activate  # Linux/Mac
-   # ou
-   venv\Scripts\activate     # Windows
+   # OU
+   .\venv\Scripts\activate  # Windows
+   
+   # Installer les dépendances
+   pip install -r requirements.txt
    ```
 
-3. **Installer les dépendances**
+3. **Configurer la base de données**
    ```bash
-   pip install -r requirements.txt
+   # Créer la base de données PostgreSQL
+   createdb keno_analyzer
+   
+   # Initialiser le schéma
+   python -c "from database_manager_postgresql import PostgreSQLManager; db = PostgreSQLManager(); db.create_schema_if_needed()"
    ```
 
 4. **Lancer l'application**
    ```bash
-   python src/main.py
+   # Mode développement
+   flask run --debug
+   
+   # OU en production avec Gunicorn
+   gunicorn "src.main:create_app()" -w 4 -b 0.0.0.0:5000
    ```
 
 5. **Accéder à l'application**
-   - Ouvrir http://localhost:5000 dans votre navigateur
+   - Interface utilisateur : http://localhost:5000
+   - Interface admin : http://localhost:5000/admin
+   - API Documentation : http://localhost:5000/api/docs
 
 ## Déploiement sur OVH
 
@@ -111,64 +160,101 @@ keno-web-app/
    - Créer un service pour démarrer automatiquement l'application
    - Configurer les logs et la surveillance
 
-## Configuration de Production
+## 🔒 Configuration de Production
 
 ### Sécurité
-
-- Changer la `SECRET_KEY` dans `main.py`
-- Configurer HTTPS
-- Limiter les requêtes CORS si nécessaire
-- Activer les logs de sécurité
+- **Toujours** utiliser HTTPS en production
+- Configurer `SECRET_KEY` avec une valeur forte
+- Activer l'authentification à deux facteurs pour les comptes admin
+- Configurer les en-têtes de sécurité (CSP, HSTS, etc.)
+- Mettre en place une limitation de débit (rate limiting)
 
 ### Performance
+- **Serveur WSGI** : Gunicorn avec 2-4 workers (selon les ressources)
+- **Base de données** : PostgreSQL avec connexion pool
+- **Cache** : Redis pour les sessions et le cache de requêtes
+- **CDN** : Pour les ressources statiques
+- **Optimisation** : Activer GZIP, minifier les assets
 
-- Utiliser un serveur WSGI (Gunicorn, uWSGI)
-- Configurer un reverse proxy (Nginx)
-- Optimiser la base de données SQLite ou migrer vers PostgreSQL
-- Mettre en place un cache Redis si nécessaire
+### Surveillance
+- **Logs** : Centralisation avec ELK ou équivalent
+- **Métriques** : Prometheus + Grafana
+- **Alertes** : Seuils sur les erreurs et la performance
+- **Sauvegardes** : Automatisation des backups de la base de données
 
-### Monitoring
+## 🌐 API Endpoints
 
-- Configurer les logs applicatifs
-- Surveiller les performances
-- Mettre en place des alertes
+### Authentification
+- `POST /login` - Connexion utilisateur
+- `POST /register` - Création de compte
+- `POST /forgot-password` - Réinitialisation du mot de passe
+- `POST /reset-password` - Définition d'un nouveau mot de passe
 
-## API Endpoints
-
-- `GET /` - Interface utilisateur
-- `POST /api/analyze` - Analyse des tirages
-- `GET /api/stats` - Statistiques de performance
-- `GET /api/user-predictions` - Prédictions utilisateurs
+### Analyse
+- `GET /api/analyze` - Analyse complète des tirages
+- `GET /api/analyze/frequencies` - Analyse des fréquences
+- `GET /api/analyze/gaps` - Analyse des écarts
+- `GET /api/analyze/cycles` - Analyse des cycles
 - `POST /api/simulate` - Simulation de résultats
-- `POST /api/update` - Mise à jour des données
-- `GET /health` - Vérification de l'état du service
 
-## Maintenance
+### Administration
+- `GET /admin` - Tableau de bord administrateur
+- `GET /admin/users` - Gestion des utilisateurs
+- `POST /admin/train-model` - Entraîner un nouveau modèle
+- `GET /admin/training-runs` - Historique des entraînements
 
-### Mise à jour des données
+### Statistiques
+- `GET /api/stats/performance` - Performances des modèles
+- `GET /api/stats/usage` - Statistiques d'utilisation
+- `GET /api/health` - État du service
 
-Les données de tirages peuvent être mises à jour en remplaçant le fichier `tirages_keno.csv` ou en implémentant un système de scraping automatique.
+## 🔄 Maintenance
 
-### Sauvegarde
+### Mise à jour des Données
+- **Mise à jour automatique** : Toutes les heures via une tâche planifiée
+- **Mise à jour manuelle** : Via l'interface d'administration
+- **Import/Export** : Formats CSV et JSON supportés
 
-- Sauvegarder régulièrement la base de données SQLite
-- Sauvegarder les fichiers de configuration
-- Conserver une copie des logs importants
+### Sauvegardes
+- **Base de données** : Dumps PostgreSQL quotidiens
+- **Modèles ML** : Sauvegarde des versions stables
+- **Logs** : Rotation et archivage automatiques
 
-## Support
+### Mises à jour
+- **Sécurité** : Mise à jour automatique des dépendances
+- **Fonctionnalités** : Releases sémantiques (SemVer)
+- **Documentation** : Mise à jour continue
 
-Pour toute question ou problème :
-- Vérifier les logs de l'application
-- Consulter la documentation Flask
-- Contacter le support technique OVH si nécessaire
+## 📚 Documentation Complète
 
-## Licence
+- [Guide d'installation détaillé](docs/INSTALLATION.md)
+- [Guide d'administration](docs/ADMIN_GUIDE.md)
+- [Documentation de l'API](docs/API.md)
+- [FAQ](docs/FAQ.md)
 
-Ce projet est fourni tel quel pour usage personnel ou commercial.
+## 🤝 Contribuer
+
+Les contributions sont les bienvenues ! Voici comment contribuer :
+
+1. Fork le projet
+2. Crée ta branche (`git checkout -b feature/AmazingFeature`)
+3. Commit tes changements (`git commit -m 'Add some AmazingFeature'`)
+4. Push vers la branche (`git push origin feature/AmazingFeature`)
+5. Ouvre une Pull Request
+
+## 📝 Licence
+
+Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
+
+## 🙏 Remerciements
+
+- À toute l'équipe de développement pour leur travail acharné
+- À la communauté open source pour les incroyables bibliothèques utilisées
+- À vous, utilisateur, pour votre confiance et vos retours
 
 ---
 
-**Version :** 1.0.0  
-**Dernière mise à jour :** Juillet 2025  
-**Compatibilité :** Python 3.8+, Flask 3.x
+**Version :** 2.0.0  
+**Dernière mise à jour :** 31 Juillet 2025  
+**Compatibilité :** Python 3.8+, Flask 3.x, PostgreSQL 13+
 
