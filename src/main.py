@@ -1028,20 +1028,6 @@ def admin_train_model():
             'message': f'Erreur serveur: {str(e)}'
         }), 500
 
-@app.route('/admin/training_runs', methods=['GET'])
-@admin_required
-def get_training_runs():
-    """Récupère l'historique des entraînements"""
-    try:
-        limit = request.args.get('limit', 10, type=int)
-        runs = db.get_training_runs(limit=limit)
-        return jsonify([dict(run) for run in runs])
-    except Exception as e:
-        logger.error(f"Erreur lors de la récupération des entraînements: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': 'Erreur lors de la récupération des entraînements'
-        }), 500
 
 @app.route('/api/admin/users')
 @admin_required
