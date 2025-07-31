@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+from sqlalchemy import text
 from database_manager_postgresql import PostgreSQLManager
 
 class TwoFactorAuth:
@@ -26,15 +27,16 @@ class TwoFactorAuth:
 
         # Sauvegarder le token dans la base de données
         with self.db.engine.connect() as conn:
-            conn.execute(
-                """
+            query = text("""
                 INSERT INTO password_reset_tokens (user_id, token, expires_at)
                 VALUES (:user_id, :token, :expires_at)
                 ON CONFLICT (user_id) 
                 DO UPDATE SET token = :token, 
                              expires_at = :expires_at,
                              created_at = CURRENT_TIMESTAMP
-                """,
+            """)
+            conn.execute(
+                query,
                 {"user_id": user['id'], "token": token, "expires_at": expiry}
             )
             conn.commit()
