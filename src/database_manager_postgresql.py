@@ -160,7 +160,9 @@ class PostgreSQLManager:
                             password VARCHAR(255) NOT NULL, -- Changement ici: password au lieu de password_hash
                             is_admin BOOLEAN DEFAULT FALSE,
                             is_moderator BOOLEAN DEFAULT FALSE,
+                            is_active BOOLEAN DEFAULT TRUE,
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                             last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                         )
                     """))
