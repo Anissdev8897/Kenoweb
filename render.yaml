@@ -5,7 +5,7 @@ services:
     env: python
     buildCommand: |
       pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
-    startCommand: python src/main.py
+    startCommand: gunicorn --timeout 120 --workers 2 --bind 0.0.0.0:$PORT main:app
     healthCheckPath: /health
     healthCheckTimeout: 30
     autoDeploy: true
@@ -31,7 +31,7 @@ services:
 
 databases:
   - name: keno-db
-    databaseName: keno_analyzer
+    databaseName: kenos_vs92
     user: keno_user
     plan: starter
     postgresExtensions:
