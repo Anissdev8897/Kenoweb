@@ -112,7 +112,7 @@ class AuthSystem:
             is_admin = user_data.get('is_admin', False)
             is_moderator = user_data.get('is_moderator', False)
             
-            password = self._hash_password(password)
+            # Ne pas hacher le mot de passe ici, il sera haché dans _create_user_postgresql
             user_id = str(uuid.uuid4())
             
             if self.use_postgresql:
@@ -151,8 +151,11 @@ class AuthSystem:
                     logger.error(f"Username déjà utilisé: {username}")
                 return None
             
-            # Hacher le mot de passe
-            hashed_password, _ = self._hash_password(password)
+            # Hacher le mot de passe s'il ne l'est pas déjà
+            if isinstance(password, tuple):  # Si déjà haché par _hash_password
+                hashed_password = password[0]  # Prendre le premier élément du tuple (le hash)
+            else:
+                hashed_password, _ = self._hash_password(password)
             
             # Créer l'utilisateur avec le mot de passe haché
             cursor.execute("""
