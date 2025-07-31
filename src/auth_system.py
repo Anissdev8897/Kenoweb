@@ -29,24 +29,17 @@ class AuthSystem:
             import psycopg2
             from psycopg2.extras import RealDictCursor
             conn = psycopg2.connect(self.database_url)
-            self._check_postgresql_structure(conn)
-            conn.close()
-            self.use_postgresql = True
-        except Exception as e:
-            raise RuntimeError(f"Connexion PostgreSQL obligatoire échouée : {e}")
             
             # Vérifier la structure de la table
             self._check_postgresql_structure(conn)
             
             conn.close()
             self.use_postgresql = True
-            self.use_json_fallback = False
+            logger.info("Connexion PostgreSQL établie avec succès")
             
         except Exception as e:
             logger.error(f"Erreur PostgreSQL: {e}")
-        logger.info("Passage en mode JSON fallback")
-        self.use_postgresql = False
-        self.use_json_fallback = True
+            raise RuntimeError(f"Connexion PostgreSQL obligatoire échouée : {e}")
     
     def _check_postgresql_structure(self, conn):
         """Vérifier et créer la structure de la table users avec le nouveau schéma corrigé"""
@@ -94,10 +87,19 @@ class AuthSystem:
         if not password or not hashed_password:
             return False
         try:
-            # Si le mot de passe haché est stocké comme chaîne, le convertir en bytes
+            # Convertir le mot de passe haché en bytes si nécessaire
             if isinstance(hashed_password, str):
                 hashed_password = hashed_password.encode('utf-8')
+            
+            # Vérifier que le hash bcrypt est valide (commence par $2a$, $2b$, $2x$, ou $2y$)
+            if not hashed_password.startswith((b'$2a$', b'$2b$', b'$2x$', b'$2y$')):
+                logger.error("Format de hash bcrypt invalide")
+                return False
+                
             return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
+        except ValueError as e:
+            logger.error(f"Erreur lors de la vérification du mot de passe: {e}")
+            return False
         except Exception as e:
             logger.error(f"Erreur lors de la vérification du mot de passe: {e}")
             return False
@@ -112,13 +114,11 @@ class AuthSystem:
             is_admin = user_data.get('is_admin', False)
             is_moderator = user_data.get('is_moderator', False)
             
-            # Ne pas hacher le mot de passe ici, il sera haché dans _create_user_postgresql
+            # Générer un ID utilisateur
             user_id = str(uuid.uuid4())
             
-            if self.use_postgresql:
-                return self._create_user_postgresql(user_id, username, email, password, is_admin, is_moderator)
-            else:
-                return self._create_user_json(user_id, username, email, password, is_admin, is_moderator)
+            # Créer l'utilisateur dans PostgreSQL
+            return self._create_user_postgresql(user_id, username, email, password, is_admin, is_moderator)
                 
         except Exception as e:
             logger.error(f"Erreur création utilisateur: {e}")
@@ -179,10 +179,7 @@ class AuthSystem:
     def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
         """Authentifier un utilisateur"""
         try:
-            if self.use_postgresql:
-                return self._authenticate_postgresql(username, password)
-            else:
-                return self._authenticate_json(username, password)
+            return self._authenticate_postgresql(username, password)
                 
         except Exception as e:
             logger.error(f"Erreur authentification: {e}")
@@ -232,10 +229,7 @@ class AuthSystem:
     def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         """Obtenir un utilisateur par nom d'utilisateur"""
         try:
-            if self.use_postgresql:
-                return self._get_user_postgresql(username)
-            else:
-                return self._get_user_json(username)
+            return self._get_user_postgresql(username)
                 
         except Exception as e:
             logger.error(f"Erreur récupération utilisateur: {e}")
@@ -269,10 +263,7 @@ class AuthSystem:
     def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """Obtenir un utilisateur par email"""
         try:
-            if self.use_postgresql:
-                return self._get_user_by_email_postgresql(email)
-            else:
-                return self._get_user_by_email_json(email)
+            return self._get_user_by_email_postgresql(email)
                 
         except Exception as e:
             logger.error(f"Erreur récupération utilisateur par email: {e}")
@@ -336,50 +327,6 @@ class AuthSystem:
             logger.error(f"Erreur récupération PostgreSQL par email: {e}")
             return None
     
-    # Méthode supprimée : fallback JSON désactivé
-        """Obtenir un utilisateur JSON"""
-        try:
-            with open(self.json_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            for user in data['users']:
-                if user['username'] == username:
-                    return {
-                        'id': user['id'],
-                        'username': user['username'],
-                        'email': user['email'],
-                        'is_admin': user['is_admin'],
-                        'is_moderator': user['is_moderator']
-                    }
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Erreur récupération JSON: {e}")
-            return None
-
-    # Méthode supprimée : fallback JSON désactivé
-        """Obtenir un utilisateur JSON par email"""
-        try:
-            with open(self.json_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            for user in data['users']:
-                if user['email'] == email:
-                    return {
-                        'id': user['id'],
-                        'username': user['username'],
-                        'email': user['email'],
-                        'is_admin': user['is_admin'],
-                        'is_moderator': user['is_moderator']
-                    }
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Erreur récupération JSON par email: {e}")
-            return None
-    
     def get_all_users(self) -> list:
         """Obtenir tous les utilisateurs (PostgreSQL only)"""
         try:
@@ -440,16 +387,4 @@ class AuthSystem:
             
         except Exception as e:
             logger.error(f"❌ Erreur récupération tous PostgreSQL: {e}")
-            return []
-    
-    # Méthode supprimée : fallback JSON désactivé
-        """Obtenir tous les utilisateurs JSON"""
-        try:
-            with open(self.json_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            return data['users']
-            
-        except Exception as e:
-            logger.error(f"Erreur récupération tous JSON: {e}")
             return []
