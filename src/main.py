@@ -7,15 +7,42 @@ import shutil  # Pour les opérations de copie de fichiers
 
 import os
 import sys
-import subprocess
-import threading
-import logging
+import json
 import time
-import schedule
-from datetime import datetime, timedelta
-from pathlib import Path
-from flask import Flask, render_template, render_template_string
+import random
+import logging
+import threading
+import datetime
+import importlib
+from collections import Counter
+from functools import wraps
 
+# Configuration du logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Vérification des modules spécialisés
+SPECIALIZED_MODULES_AVAILABLE = True
+ANALYZER_MODULES = [
+    'keno_finales_analysis',
+    'keno_ecarts_analysis',
+    'keno_temporal_analysis',
+    'keno_monte_carlo_analysis'
+]
+
+# Vérifier si tous les modules sont disponibles
+for module in ANALYZER_MODULES:
+    try:
+        importlib.import_module(module)
+        logger.info(f"Module {module} chargé avec succès")
+    except ImportError as e:
+        logger.warning(f"Module {module} non disponible: {e}")
+        SPECIALIZED_MODULES_AVAILABLE = False
+
+# Configuration Flask
+from flask import Flask, request, jsonify, render_template, redirect, url_for, flash, session, send_from_directory
+from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Charger les variables d'environnement depuis .env
 from dotenv import load_dotenv
@@ -1872,19 +1899,82 @@ class KenoAnalyzer:
         return sorted(best_numbers[:nb_numbers])
     
     def complete_analysis(self, nb_numbers=8, date_debut=None, date_fin=None):
-        """Analyse complète avec toutes les méthodes"""
-        # Combiner plusieurs méthodes
-        freq_nums = self.frequency_strategy(nb_numbers // 2, date_debut, date_fin)
-        ml_nums = self.enhanced_ml_strategy(nb_numbers // 2, date_debut, date_fin)
+        """Analyse complète avec toutes les méthodes, y compris les analyseurs spécialisés"""
+        # Récupérer les tirages filtrés
+        draws = self.filter_draws_by_period(date_debut, date_fin)
         
-        combined = list(set(freq_nums + ml_nums))
+        # Initialiser les poids pour chaque méthode
+        weights = {
+            'frequency': 1.0,
+            'enhanced_ml': 1.5,
+            'finales': 1.2 if self.finales_analyzer else 0,
+            'ecarts': 1.1 if self.ecarts_analyzer else 0,
+            'temporal': 1.1 if self.temporal_analyzer else 0,
+            'monte_carlo': 1.3 if self.monte_carlo_analyzer else 0
+        }
         
-        while len(combined) < nb_numbers:
-            candidate = random.randint(1, 70)
-            if candidate not in combined:
-                combined.append(candidate)
+        # Initialiser les scores pour chaque numéro
+        scores = {n: 0 for n in range(1, 71)}
         
-        return sorted(combined[:nb_numbers])
+        # 1. Méthode des fréquences
+        freq_nums = self.frequency_strategy(nb_numbers, date_debut, date_fin)
+        for num in freq_nums:
+            scores[num] += weights['frequency']
+        
+        # 2. Machine Learning
+        ml_nums = self.enhanced_ml_strategy(nb_numbers, date_debut, date_fin)
+        for num in ml_nums:
+            scores[num] += weights['enhanced_ml']
+        
+        # 3. Analyse des finales (si disponible)
+        if self.finales_analyzer and hasattr(self.finales_analyzer, 'predict'):
+            try:
+                finales_nums = self.finales_analyzer.predict(nb_numbers)
+                for num in finales_nums:
+                    scores[num] += weights['finales']
+            except Exception as e:
+                logger.error(f"Erreur dans l'analyse des finales: {e}")
+        
+        # 4. Analyse des écarts (si disponible)
+        if self.ecarts_analyzer and hasattr(self.ecarts_analyzer, 'predict'):
+            try:
+                ecarts_nums = self.ecarts_analyzer.predict(nb_numbers)
+                for num in ecarts_nums:
+                    scores[num] += weights['ecarts']
+            except Exception as e:
+                logger.error(f"Erreur dans l'analyse des écarts: {e}")
+        
+        # 5. Analyse temporelle (si disponible)
+        if self.temporal_analyzer and hasattr(self.temporal_analyzer, 'predict'):
+            try:
+                temporal_nums = self.temporal_analyzer.predict(nb_numbers)
+                for num in temporal_nums:
+                    scores[num] += weights['temporal']
+            except Exception as e:
+                logger.error(f"Erreur dans l'analyse temporelle: {e}")
+        
+        # 6. Analyse Monte Carlo (si disponible)
+        if self.monte_carlo_analyzer and hasattr(self.monte_carlo_analyzer, 'predict'):
+            try:
+                monte_carlo_nums = self.monte_carlo_analyzer.predict(nb_numbers)
+                for num in monte_carlo_nums:
+                    scores[num] += weights['monte_carlo']
+            except Exception as e:
+                logger.error(f"Erreur dans l'analyse Monte Carlo: {e}")
+        
+        # Trier les numéros par score décroissant
+        best_numbers = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
+        
+        # Sélectionner les meilleurs numéros
+        result = best_numbers[:nb_numbers]
+        
+        # Si on n'a pas assez de numéros, compléter avec des numéros aléatoires
+        if len(result) < nb_numbers:
+            remaining = [n for n in range(1, 71) if n not in result]
+            random.shuffle(remaining)
+            result.extend(remaining[:(nb_numbers - len(result))])
+        
+        return sorted(result)
     
     def save_prediction(self, method, numbers, user_config):
         """Sauvegarder une prédiction"""
