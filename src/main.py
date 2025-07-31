@@ -817,15 +817,231 @@ def register():
 @admin_required
 def admin_dashboard():
     """Page d'administration"""
-    if 'user_id' not in session:
-        return redirect('/login')
+    if 'user_id' not in session or not session.get('is_admin'):
+        return redirect(url_for('login'))
+        
+    # Récupérer les statistiques d'utilisation
+    stats = {
+        'total_users': db.get_user_count(),
+        'total_predictions': len(db.get_all_predictions()),
+        'active_users': db.get_active_user_count()
+    }
     
-    user = auth_system.get_user_by_id(session['user_id'])
-    if not user or not user.get('is_admin'):
-        flash('Accès refusé', 'error')
-        return redirect('/analyser')
+    # Récupérer le dernier entraînement si disponible
+    try:
+        training_runs = db.get_training_runs(limit=1)
+        if training_runs:
+            stats['last_training_run'] = training_runs[0]
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération du dernier entraînement: {e}")
     
-    return render_template('admin.html')
+    return render_template('admin/dashboard.html', stats=stats)
+
+@app.route('/admin/training_runs')
+@admin_required
+def get_training_runs():
+    """API pour récupérer l'historique des entraînements"""
+    try:
+        limit = request.args.get('limit', 10, type=int)
+        runs = db.get_training_runs(limit=limit)
+        return jsonify([{
+            'id': run['id'],
+            'model_type': run['model_type'],
+            'status': run['status'],
+            'start_time': run['start_time'].isoformat() if run['start_time'] else None,
+            'end_time': run['end_time'].isoformat() if run['end_time'] else None,
+            'parameters': run['parameters'],
+            'created_by': run.get('created_by', 'Système'),
+            'metrics_count': run.get('metrics_count', 0)
+        } for run in runs])
+    except Exception as e:
+        logger.error(f"Erreur dans get_training_runs: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/train_model', methods=['POST'])
+@admin_required
+def train_model():
+    """API pour démarrer un nouvel entraînement de modèle"""
+    if not request.is_json:
+        return jsonify({'error': 'Le contenu doit être au format JSON'}), 400
+    
+    data = request.get_json()
+    model_type = data.get('model_type')
+    model_name = data.get('model_name', f'model_{int(time.time())}')
+    parameters = data.get('parameters', {})
+    
+    if not model_type:
+        return jsonify({'error': 'Le type de modèle est requis'}), 400
+    
+    try:
+        # Démarrer un nouvel entraînement
+        run_id = db.start_training_run(
+            model_type=model_type,
+            model_name=model_name,
+            parameters=parameters,
+            created_by=session.get('user_id')
+        )
+        
+        if not run_id:
+            return jsonify({'error': 'Échec du démarrage de l\'entraînement'}), 500
+        
+        # Démarrer l'entraînement en arrière-plan
+        def train_task():
+            try:
+                # Simuler un temps d'entraînement
+                time.sleep(5)
+                
+                # Ici, vous devriez appeler votre logique d'entraînement réelle
+                # Par exemple :
+                # model = train_ml_model(model_type, parameters)
+                # metrics = evaluate_model(model)
+                
+                # Pour l'exemple, on simule des métriques
+                metrics = {
+                    'accuracy': random.uniform(0.7, 0.95),
+                    'precision': random.uniform(0.65, 0.9),
+                    'recall': random.uniform(0.6, 0.88)
+                }
+                
+                # Sauvegarder le modèle (simulé)
+                model_id = f"{model_type}_{int(time.time())}"
+                
+                # Marquer l'entraînement comme terminé
+                db.complete_training_run(
+                    run_id=run_id,
+                    model_id=model_id,
+                    metrics=metrics
+                )
+                
+                logger.info(f"Entraînement {run_id} terminé avec succès")
+                
+            except Exception as e:
+                logger.error(f"Erreur lors de l'entraînement: {str(e)}")
+                db.update_training_run_status(run_id, 'failed', str(e))
+        
+        # Démarrer le thread d'entraînement
+        import threading
+        thread = threading.Thread(target=train_task)
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Entraînement démarré avec succès',
+            'run_id': run_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur dans train_model: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/train_model', methods=['POST'])
+@admin_required
+def admin_train_model():
+    """
+    API pour démarrer un entraînement de modèle ML
+    
+    Requête JSON attendue:
+    {
+        "model_type": "random_forest",
+        "parameters": {
+            "n_estimators": 100,
+            "max_depth": 10
+        },
+        "force_retrain": false
+    }
+    """
+    try:
+        data = request.get_json()
+        model_type = data.get('model_type')
+        parameters = data.get('parameters', {})
+        force_retrain = data.get('force_retrain', False)
+        
+        # Vérifier si un entraînement est déjà en cours
+        current_run = db.get_training_run_by_status('in_progress')
+        if current_run and not force_retrain:
+            return jsonify({
+                'status': 'error',
+                'message': 'Un entraînement est déjà en cours',
+                'run_id': current_run['id']
+            }), 400
+            
+        # Démarrer un nouvel entraînement
+        run_id = db.start_training_run(
+            model_type=model_type,
+            parameters=parameters,
+            created_by=session.get('user_id')
+        )
+        
+        if not run_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Échec du démarrage de l\'entraînement'
+            }), 500
+            
+        # Démarrer l'entraînement en arrière-plan
+        def train_model_task():
+            try:
+                # Mettre à jour le statut du run
+                db.update_training_run_status(run_id, 'in_progress')
+                
+                # Ici, vous devriez appeler votre logique d'entraînement
+                # Par exemple :
+                # model, metrics = keno_analyzer.train_model(model_type, parameters)
+                # model_binary = pickle.dumps(model)
+                
+                # Sauvegarder le modèle
+                # model_id = db.save_ml_model(
+                #     model_name=f"{model_type}_{run_id}",
+                #     model_type=model_type,
+                #     model_binary=model_binary,
+                #     training_score=metrics.get('training_score'),
+                #     test_score=metrics.get('test_score'),
+                #     r2_score=metrics.get('r2_score'),
+                #     training_time_seconds=metrics.get('training_time_seconds'),
+                #     metadata=parameters
+                # )
+                
+                # Marquer le run comme terminé
+                db.complete_training_run(run_id, model_id=1, metrics={})  # Remplacer 1 par model_id réel
+                
+            except Exception as e:
+                logger.error(f"Erreur lors de l'entraînement: {str(e)}")
+                db.update_training_run_status(run_id, 'failed', str(e))
+        
+        # Démarrer le thread d'entraînement
+        import threading
+        thread = threading.Thread(target=train_model_task)
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Entraînement démarré avec succès',
+            'run_id': run_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur dans admin_train_model: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Erreur serveur: {str(e)}'
+        }), 500
+
+@app.route('/admin/training_runs', methods=['GET'])
+@admin_required
+def get_training_runs():
+    """Récupère l'historique des entraînements"""
+    try:
+        limit = request.args.get('limit', 10, type=int)
+        runs = db.get_training_runs(limit=limit)
+        return jsonify([dict(run) for run in runs])
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des entraînements: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Erreur lors de la récupération des entraînements'
+        }), 500
 
 @app.route('/api/admin/users')
 @admin_required
