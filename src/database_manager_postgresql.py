@@ -687,12 +687,151 @@ class PostgreSQLManager:
             logger.error(f"❌ Erreur lors de la récupération du dernier modèle ML: {e}")
             return None
 
+    def start_training_run(self, model_type: str, parameters: dict, created_by: int = None) -> int:
+        """
+        Démarre un nouvel entraînement de modèle.
+        
+        Args:
+            model_type (str): Type de modèle à entraîner
+            parameters (dict): Paramètres d'entraînement
+            created_by (int, optional): ID de l'utilisateur qui a démarré l'entraînement
+            
+        Returns:
+            int: L'ID du run d'entraînement ou None en cas d'erreur
+        """
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    result = conn.execute(text("""
+                        INSERT INTO model_training_runs (
+                            model_type, parameters, status, created_by, start_time
+                        ) VALUES (
+                            :model_type, :parameters, 'pending', :created_by, CURRENT_TIMESTAMP
+                        )
+                        RETURNING id
+                    """), {
+                        'model_type': model_type,
+                        'parameters': parameters,
+                        'created_by': created_by
+                    })
+                    
+                    run_id = result.scalar()
+                    logger.info(f"✅ Démarrage de l'entraînement du modèle {model_type} (ID: {run_id})")
+                    return run_id
+                    
+        except Exception as e:
+            logger.error(f"❌ Erreur lors du démarrage de l'entraînement: {e}")
+            return None
+
+    def complete_training_run(self, run_id: int, model_id: int, metrics: dict) -> bool:
+        """
+        Finalise un entraînement de modèle avec succès.
+        
+        Args:
+            run_id (int): ID du run d'entraînement
+            model_id (int): ID du modèle entraîné
+            metrics (dict): Métriques d'évaluation
+            
+        Returns:
+            bool: True si la mise à jour a réussi, False sinon
+        """
+        try:
+            with self.engine.connect() as conn:
+                with conn.begin():
+                    # Mettre à jour le statut du run
+                    conn.execute(text("""
+                        UPDATE model_training_runs 
+                        SET status = 'completed', 
+                            end_time = CURRENT_TIMESTAMP,
+                            model_id = :model_id
+                        WHERE id = :run_id
+                    """), {
+                        'run_id': run_id,
+                        'model_id': model_id
+                    })
+                    
+                    # Sauvegarder les métriques
+                    if metrics:
+                        for metric_name, metric_value in metrics.items():
+                            conn.execute(text("""
+                                INSERT INTO model_metrics (
+                                    model_id, metric_name, metric_value
+                                ) VALUES (
+                                    :model_id, :metric_name, :metric_value
+                                )
+                                ON CONFLICT (model_id, metric_name) 
+                                DO UPDATE SET 
+                                    metric_value = EXCLUDED.metric_value,
+                                    created_at = CURRENT_TIMESTAMP
+                            """), {
+                                'model_id': model_id,
+                                'metric_name': metric_name,
+                                'metric_value': float(metric_value)
+                            })
+                    
+                    logger.info(f"✅ Entraînement {run_id} complété avec succès")
+                    return True
+                    
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la finalisation de l'entraînement: {e}")
+            return False
+
+    def get_training_run(self, run_id: int) -> dict:
+        """
+        Récupère les détails d'un run d'entraînement.
+        
+        Args:
+            run_id (int): ID du run à récupérer
+            
+        Returns:
+            dict: Les détails du run ou None si non trouvé
+        """
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT * FROM model_training_runs WHERE id = :run_id
+                """), {'run_id': run_id})
+                
+                row = result.fetchone()
+                if row:
+                    return dict(row._mapping)
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la récupération du run {run_id}: {e}")
+            return None
+
+    def get_model_metrics(self, model_id: int) -> list:
+        """
+        Récupère toutes les métriques d'un modèle.
+        
+        Args:
+            model_id (int): ID du modèle
+            
+        Returns:
+            list: Liste des métriques du modèle
+        """
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT metric_name, metric_value, created_at 
+                    FROM model_metrics 
+                    WHERE model_id = :model_id
+                    ORDER BY created_at DESC
+                """), {'model_id': model_id})
+                
+                return [dict(row._mapping) for row in result.fetchall()]
+                
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la récupération des métriques: {e}")
+            return []
+
     def get_user_by_email(self, email: str) -> dict:
         """
         Récupère un utilisateur par son adresse email.
         
         Args:
-            email (str): L'adresse email de l'utilisateur à rechercher
+            email (str): L'email de l'utilisateur à rechercher
             
         Returns:
             dict: Les informations de l'utilisateur ou None si non trouvé
