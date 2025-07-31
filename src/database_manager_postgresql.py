@@ -123,23 +123,18 @@ class PostgreSQLManager:
         try:
             with self.engine.connect() as conn:
                 with conn.begin():
-                    # Nettoyage complet des anciennes structures pour garantir un état propre
-                    logger.info("Nettoyage des anciennes tables et index pour garantir un état propre...")
-                    conn.execute(text("DROP TABLE IF EXISTS ml_models CASCADE;"))
-                    conn.execute(text("DROP TABLE IF EXISTS analysis_results CASCADE;"))
-                    conn.execute(text("DROP TABLE IF EXISTS predictions CASCADE;"))
-                    conn.execute(text("DROP TABLE IF EXISTS tirages CASCADE;"))
-                    conn.execute(text("DROP TABLE IF EXISTS users CASCADE;"))
-                    conn.execute(text("DROP TABLE IF EXISTS method_stats CASCADE;"))
-                    logger.info("Nettoyage terminé.")
-
-                    # --- ÉTAPE 1: CRÉATION DES TABLES ---
-                    logger.info("Création des tables...")
-                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"; CREATE EXTENSION IF NOT EXISTS \"pgcrypto\"; CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
+                    # --- ÉTAPE 1: CRÉATION DES EXTENSIONS ---
+                    logger.info("Vérification des extensions requises...")
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"))
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";"))
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
+                    
+                    # --- ÉTAPE 2: CRÉATION DES TABLES ---
+                    logger.info("Vérification et création des tables si elles n'existent pas...")
                     
                     # Table tirages
                     conn.execute(text("""
-                        CREATE TABLE tirages (
+                        CREATE TABLE IF NOT EXISTS tirages (
                             id SERIAL PRIMARY KEY,
                             date_tirage DATE NOT NULL UNIQUE,
                             heure_tirage TIME,
@@ -151,25 +146,41 @@ class PostgreSQLManager:
                         )
                     """))
                     
-                    # Table users (avec 'password' au lieu de 'password_hash')
+                    # Table users
                     conn.execute(text("""
-                        CREATE TABLE users (
+                        CREATE TABLE IF NOT EXISTS users (
                             id SERIAL PRIMARY KEY,
                             username VARCHAR(50) UNIQUE NOT NULL,
                             email VARCHAR(255) UNIQUE,
-                            password VARCHAR(255) NOT NULL, -- Changement ici: password au lieu de password_hash
+                            password VARCHAR(255) NOT NULL,
                             is_admin BOOLEAN DEFAULT FALSE,
                             is_moderator BOOLEAN DEFAULT FALSE,
                             is_active BOOLEAN DEFAULT TRUE,
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            last_login TIMESTAMP WITH TIME ZONE,
                             last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    
+                    # Table model_training_runs
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS model_training_runs (
+                            id SERIAL PRIMARY KEY,
+                            model_id INTEGER REFERENCES ml_models(id) ON DELETE CASCADE,
+                            start_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            end_time TIMESTAMP WITH TIME ZONE,
+                            status VARCHAR(50) NOT NULL,
+                            metrics JSONB,
+                            parameters JSONB,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                         )
                     """))
                     
                     # Table predictions
                     conn.execute(text("""
-                        CREATE TABLE predictions (
+                        CREATE TABLE IF NOT EXISTS predictions (
                             id SERIAL PRIMARY KEY,
                             tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE,
                             user_id VARCHAR(50) NOT NULL,
@@ -186,7 +197,7 @@ class PostgreSQLManager:
                     
                     # Table method_stats (avec 'correct_predictions' et 'accuracy')
                     conn.execute(text("""
-                        CREATE TABLE method_stats (
+                        CREATE TABLE IF NOT EXISTS method_stats (
                             id SERIAL PRIMARY KEY,
                             method VARCHAR(100) UNIQUE NOT NULL,
                             total_predictions INTEGER DEFAULT 0,
@@ -198,7 +209,7 @@ class PostgreSQLManager:
                     
                     # Table analysis_results
                     conn.execute(text("""
-                        CREATE TABLE analysis_results (
+                        CREATE TABLE IF NOT EXISTS analysis_results (
                             id SERIAL PRIMARY KEY,
                             tirage_id INTEGER REFERENCES tirages(id) ON DELETE CASCADE,
                             analysis_type VARCHAR(50) NOT NULL,
@@ -210,7 +221,7 @@ class PostgreSQLManager:
                     
                     # Table ml_models (avec 's3_path' au lieu de 'weights', et sans 'is_active', 'parameters')
                     conn.execute(text("""
-                        CREATE TABLE ml_models (
+                        CREATE TABLE IF NOT EXISTS ml_models (
                             id SERIAL PRIMARY KEY,
                             model_name VARCHAR(100) NOT NULL,
                             model_type VARCHAR(50) NOT NULL,
