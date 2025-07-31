@@ -173,6 +173,82 @@ class PostgreSQLManager:
             logger.error(f"❌ Erreur lors de la récupération des runs d'entraînement: {e}")
             return []
 
-    # ... (toutes vos autres méthodes de la classe)
-    # Assurez-vous que le reste de la classe est inclus ici.
+    def get_user_count(self) -> int:
+        """
+        Retourne le nombre total d'utilisateurs enregistrés dans la base de données.
+        
+        Returns:
+            int: Le nombre total d'utilisateurs
+        """
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) as count FROM users"))
+                return result.scalar() or 0
+        except Exception as e:
+            logger.error(f"❌ Erreur lors du comptage des utilisateurs: {e}")
+            return 0
 
+    def get_active_user_count(self, days: int = 30) -> int:
+        """
+        Retourne le nombre d'utilisateurs actifs (ayant été actifs dans les X derniers jours).
+        
+        Args:
+            days (int): Nombre de jours pour considérer un utilisateur comme actif (défaut: 30)
+            
+        Returns:
+            int: Le nombre d'utilisateurs actifs
+        """
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(
+                    text("""
+                        SELECT COUNT(DISTINCT user_id) as count 
+                        FROM user_activity 
+                        WHERE activity_time > NOW() - INTERVAL ':days days'
+                    """),
+                    {'days': days}
+                )
+                return result.scalar() or 0
+        except Exception as e:
+            logger.error(f"❌ Erreur lors du comptage des utilisateurs actifs: {e}")
+            return 0
+
+    def get_all_predictions(self, limit: int = 1000) -> list:
+        """
+        Récupère toutes les prédictions de la base de données.
+        
+        Args:
+            limit (int): Nombre maximum de prédictions à retourner (par défaut: 1000)
+            
+        Returns:
+            list: Liste des prédictions avec leurs détails
+        """
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(
+                    text("""
+                        SELECT p.id, p.user_id, p.method, p.numeros, p.created_at,
+                               p.confidence, p.correct_count, p.is_validated,
+                               u.username, u.email
+                        FROM predictions p
+                        LEFT JOIN users u ON p.user_id = u.id
+                        ORDER BY p.created_at DESC
+                        LIMIT :limit
+                    """),
+                    {'limit': limit}
+                )
+                
+                predictions = []
+                for row in result.fetchall():
+                    pred_dict = dict(row._mapping)
+                    # Convertir les types si nécessaire
+                    if 'numeros' in pred_dict and isinstance(pred_dict['numeros'], str):
+                        # Convertir la chaîne de tableau PostgreSQL en liste Python
+                        pred_dict['numeros'] = [int(n) for n in pred_dict['numeros'][1:-1].split(',') if n.strip().isdigit()]
+                    predictions.append(pred_dict)
+                
+                return predictions
+                
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la récupération des prédictions: {e}")
+            return []
