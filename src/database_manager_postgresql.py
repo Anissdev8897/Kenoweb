@@ -72,7 +72,7 @@ class PostgreSQLManager:
         # Configurer le gestionnaire d'événements pour gérer les erreurs de connexion
         from sqlalchemy import event
         
-        def reconnect_engine():
+        def reconnect_engine(self):
             """Réinitialise le moteur de base de données et établit une nouvelle connexion"""
             logger.warning("Tentative de reconnexion à la base de données...")
             self.engine.dispose()  # Ferme toutes les connexions existantes
@@ -113,6 +113,62 @@ class PostgreSQLManager:
                 raise exc.DisconnectionError()
             finally:
                 cursor.close()
+
+    def get_user_count(self):
+        """Retourne le nombre total d'utilisateurs enregistrés"""
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) FROM users"))
+                return result.scalar() or 0
+        except Exception as e:
+            logger.error(f"Erreur lors du comptage des utilisateurs: {e}")
+            return 0
+            
+    def get_active_user_count(self, days=30):
+        """
+        Retourne le nombre d'utilisateurs actifs (ayant été actifs dans les X derniers jours)
+        
+        Args:
+            days (int): Nombre de jours pour considérer un utilisateur comme actif
+            
+        Returns:
+            int: Nombre d'utilisateurs actifs
+        """
+        try:
+            with self.engine.connect() as conn:
+                query = text("""
+                    SELECT COUNT(DISTINCT user_id) 
+                    FROM user_activity 
+                    WHERE activity_time >= NOW() - INTERVAL ':days days'
+                """)
+                result = conn.execute(query, {'days': days})
+                return result.scalar() or 0
+        except Exception as e:
+            logger.error(f"Erreur lors du comptage des utilisateurs actifs: {e}")
+            return 0
+            
+    def get_all_predictions(self, limit=1000):
+        """
+        Récupère les prédictions de l'utilisateur
+        
+        Args:
+            limit (int): Nombre maximum de prédictions à retourner
+            
+        Returns:
+            list: Liste des prédictions
+        """
+        try:
+            with self.engine.connect() as conn:
+                query = text("""
+                    SELECT * FROM predictions 
+                    ORDER BY prediction_date DESC 
+                    LIMIT :limit
+                """)
+                result = conn.execute(query, {'limit': limit})
+                return [dict(row) for row in result.mappings()]
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des prédictions: {e}")
+            return []
 
     def create_schema_if_needed(self):
         """
