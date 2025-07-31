@@ -12,7 +12,7 @@ import time
 import random
 import logging
 import threading
-import datetime
+from datetime import datetime, timedelta
 import importlib
 from pathlib import Path
 from collections import Counter
@@ -1443,7 +1443,7 @@ class KenoAnalyzer:
             'enhanced_ml': {'correct': 0, 'total': 0}
         }
         self.csv_file = os.path.join(os.path.dirname(__file__), 'tirages_keno.csv')
-        self.last_update = datetime.datetime.now()
+        self.last_update = datetime.now()
         self.auto_update_running = True
         
         # Initialiser le système de mise à jour automatique
@@ -1631,7 +1631,7 @@ class KenoAnalyzer:
     
     def check_auto_update(self):
         """Vérifier si une mise à jour automatique est nécessaire"""
-        # Vérifier si la dernière mise à jour date de plus de 6h
+        # Vérifier si la dernière mise à jour date de plus de 1h
         if datetime.now() - self.last_update > timedelta(hours=1):
             logger.info("Mise à jour automatique nécessaire (>1h)")
             return self.update_tirages_from_web()
