@@ -225,15 +225,16 @@ class PostgreSQLManager:
 
                     # --- ÉTAPE 2: CRÉATION DES INDEX ---
                     logger.info("Création des index...")
-                    conn.execute(text("CREATE INDEX idx_tirages_date ON tirages(date_tirage DESC)"))
-                    conn.execute(text("CREATE INDEX idx_tirages_numeros ON tirages USING GIN(numeros)"))
-                    conn.execute(text("CREATE INDEX idx_users_username ON users(username)"))
-                    conn.execute(text("CREATE INDEX idx_users_email ON users(email)"))
-                    conn.execute(text("CREATE INDEX idx_predictions_user ON predictions(user_id)"))
-                    conn.execute(text("CREATE INDEX idx_predictions_method ON predictions(method)"))
-                    conn.execute(text("CREATE INDEX idx_predictions_created ON predictions(created_at DESC)"))
-                    conn.execute(text("CREATE INDEX idx_analysis_tirage ON analysis_results(tirage_id)"))
-                    logger.info("✅ Index créés avec succès.")
+                    # Utilisation de IF NOT EXISTS pour éviter les erreurs de doublons
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_date ON tirages(date_tirage DESC)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_tirages_numeros ON tirages USING GIN(numeros)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_method ON predictions(method)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_predictions_created ON predictions(created_at DESC)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_analysis_tirage ON analysis_results(tirage_id)"))
+                    logger.info("✅ Index créés ou déjà existants.")
 
                     # --- ÉTAPE 3: INSERTION DES DONNÉES INITIALES ---
                     conn.execute(text("""
