@@ -143,7 +143,7 @@ class PostgreSQLManager:
                             id SERIAL PRIMARY KEY,
                             date_tirage DATE NOT NULL UNIQUE,
                             heure_tirage TIME,
-                            numeros INTEGER[] NOT NULL DEFAULT \'{}\':INTEGER[],
+                            numeros INTEGER[] NOT NULL DEFAULT '{}'::INTEGER[],
                             multiplicateur INTEGER,
                             joker VARCHAR(20),
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

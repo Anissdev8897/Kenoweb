@@ -41,7 +41,7 @@ for module in ANALYZER_MODULES:
         SPECIALIZED_MODULES_AVAILABLE = False
 
 # Configuration Flask
-from flask import Flask, request, jsonify, render_template, redirect, url_for, flash, session, send_from_directory
+from flask import Flask, request, jsonify, render_template, redirect, url_for, flash, session, send_from_directory, render_template_string
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -1443,7 +1443,7 @@ class KenoAnalyzer:
             'enhanced_ml': {'correct': 0, 'total': 0}
         }
         self.csv_file = os.path.join(os.path.dirname(__file__), 'tirages_keno.csv')
-        self.last_update = datetime.now()
+        self.last_update = datetime.datetime.now()
         self.auto_update_running = True
         
         # Initialiser le système de mise à jour automatique
