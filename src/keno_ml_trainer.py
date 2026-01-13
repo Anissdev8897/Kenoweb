@@ -18,6 +18,14 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, r2_score
 import joblib
 
+# Import de l'encodeur centralisé
+try:
+    from keno_encoder import KenoFeatureEncoder
+except ImportError:
+    # Fallback si le fichier n'est pas trouvé (pour les tests isolés)
+    logging.warning("KenoFeatureEncoder non trouvé, features manuelles utilisées.")
+    KenoFeatureEncoder = None
+
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,10 +41,16 @@ class KenoMLTrainer:
         self.training_history = {}
         self.model_dir = 'ml_models'
         self.is_trained = False
+        # Initialiser l'encodeur si disponible
+        if KenoFeatureEncoder:
+            self.encoder = KenoFeatureEncoder(window_size=10)
+        else:
+            self.encoder = None
         
         # Créer le dossier des modèles
         if not os.path.exists(self.model_dir):
             os.makedirs(self.model_dir)
+
     def load_and_prepare_data(self):
         """Charger et préparer les données pour l'entraînement"""
         try:
@@ -49,6 +63,20 @@ class KenoMLTrainer:
             
             logger.info(f"Données chargées: {len(df)} tirages")
             
+            # Utilisation de l'encodeur centralisé si disponible
+            if self.encoder:
+                logger.info("Utilisation de KenoFeatureEncoder pour la génération des features...")
+                self.encoder.fit(df)
+                features, targets = self.encoder.transform(df)
+
+                if features is not None:
+                    logger.info(f"Features créées via Encoder: {features.shape}")
+                    logger.info(f"Targets créées via Encoder: {targets.shape}")
+                    return features, targets
+                else:
+                    logger.warning("L'encodeur a retourné None, passage en manuel...")
+
+            # ... [Code manuel conservé en fallback si l'encoder échoue ou n'est pas dispo] ...
             # Extraire les numéros des colonnes
             numero_cols = [col for col in df.columns if col.startswith('numero_')]
             if not numero_cols:
@@ -123,8 +151,8 @@ class KenoMLTrainer:
             features = np.array(features)
             targets = np.array(targets)
             
-            logger.info(f"Features créées: {features.shape}")
-            logger.info(f"Targets créées: {targets.shape}")
+            logger.info(f"Features créées (Manuel): {features.shape}")
+            logger.info(f"Targets créées (Manuel): {targets.shape}")
             
             return features, targets
             
@@ -149,7 +177,11 @@ class KenoMLTrainer:
                 features, targets, test_size=0.2, random_state=42
             )
             
-            # Normaliser les features
+            # Normaliser les features (Si l'encodeur est utilisé, c'est déjà fait, mais refaire ne nuit pas si scaler ajusté)
+            # Si encoder utilisé, les données sont déjà scaled.
+            # Cependant, pour garder la compatibilité avec le code existant qui attend self.scalers['main']
+            # on va ré-adapter.
+
             scaler = StandardScaler()
             X_train_scaled = scaler.fit_transform(X_train)
             X_test_scaled = scaler.transform(X_test)

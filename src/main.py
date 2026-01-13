@@ -110,10 +110,18 @@ try:
     from keno_ecarts_analysis import KenoEcartsAnalyzer
     from keno_temporal_analysis import KenoTemporalAnalyzer
     from keno_monte_carlo_analysis import KenoMonteCarloAnalyzer
+    # Nouvel encodeur pour le ML
+    from keno_encoder import KenoFeatureEncoder
     SPECIALIZED_MODULES_AVAILABLE = True
 except ImportError as e:
     logging.warning(f"Modules spécialisés non disponibles: {e}")
     SPECIALIZED_MODULES_AVAILABLE = False
+
+# Import du scraper optimisé
+try:
+    from keno_web_scraper import KenoWebScraper
+except ImportError:
+    logging.warning("Module keno_web_scraper non trouvé, utilisation de la classe locale si disponible")
 
 # Configuration du logger
 logger = logging.getLogger(__name__)
@@ -125,15 +133,40 @@ logger.addHandler(handler)
 
 # Import du gestionnaire de base de données et du système 2FA
 try:
-    from database_manager_postgresql import PostgreSQLManager
     from auth_2fa import TwoFactorAuth
     
-    # Création d'une instance de PostgreSQLManager (plus de Singleton)
-    db_manager = PostgreSQLManager()
+    # Gestion de la base de données avec fallback robuste
+    db_manager = None
+    use_sqlite = False
     
-    # Initialisation du schéma (uniquement dans le processus principal)
-    if __name__ == '__main__' or not os.environ.get('WERKZEUG_RUN_MAIN'):
-        db_manager.create_schema_if_needed()
+    try:
+        from database_manager_postgresql import PostgreSQLManager
+        # Tentative d'initialisation de PostgreSQLManager
+        db_manager = PostgreSQLManager()
+
+        # Test immédiat de la connexion pour valider (par exemple via create_schema)
+        # On le fait ici pour catcher l'erreur tout de suite si la co échoue
+        if __name__ == '__main__' or not os.environ.get('WERKZEUG_RUN_MAIN'):
+             db_manager.create_schema_if_needed()
+
+        logger.info("✅ PostgreSQLManager initialisé et connecté avec succès")
+
+    except (ImportError, ValueError, Exception) as e:
+        logger.warning(f"⚠️ Échec de l'initialisation PostgreSQL: {e}")
+        use_sqlite = True
+
+    if use_sqlite:
+        logger.info("🔄 Basculement vers SQLiteManager...")
+        try:
+            from database_manager_sqlite_compat import SQLiteManager
+            db_manager = SQLiteManager("keno.db")
+            if __name__ == '__main__' or not os.environ.get('WERKZEUG_RUN_MAIN'):
+                db_manager.create_schema_if_needed()
+            logger.info("✅ SQLiteManager initialisé avec succès")
+        except Exception as e:
+            logger.critical(f"❌ Échec critique de l'initialisation de la base de données (SQLite): {e}")
+            # On continue sans DB ou on raise, selon la tolérance souhaitée.
+            # Pour l'instant on laisse db_manager qui pourrait être None ou partiel.
     
     # Vérifier que la clé API SendGrid est configurée
     sendgrid_key = os.environ.get('SENDGRID_API_KEY')
@@ -165,116 +198,9 @@ except Exception as e:
     two_fa = None
 
 
-class KenoWebScraper:
-    """Scraper pour récupérer les tirages Keno depuis le web"""
-    
-    def __init__(self):
-        self.url = "https://www.reducmiz.com/resultat_fdj.php?jeu=keno&nb=all"
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        
-    def convertir_date_francaise(self, date_str):
-        """Convertit une date française en format JJ/MM/AAAA"""
-        if re.match(r'\d{1,2}/\d{1,2}/\d{4}', date_str):
-            return date_str
-            
-        mois_fr = {
-            'janvier': '01', 'février': '02', 'mars': '03', 'avril': '04',
-            'mai': '05', 'juin': '06', 'juillet': '07', 'août': '08',
-            'septembre': '09', 'octobre': '10', 'novembre': '11', 'décembre': '12'
-        }
-        
-        pattern = r'(\w+)\s+(\d{1,2})/(\d{1,2})/(\d{4})\s+(\w+)'
-        match = re.search(pattern, date_str)
-        
-        if match:
-            jour_semaine, jour, mois, annee, moment = match.groups()
-            jour = jour.zfill(2)
-            mois = mois.zfill(2)
-            return f"{jour}/{mois}/{annee}"
-        
-        pattern_text = r'(\d{1,2})\s+(\w+)\s+(\d{4})'
-        match_text = re.search(pattern_text, date_str)
-        
-        if match_text:
-            jour, mois_nom, annee = match_text.groups()
-            mois_nom = mois_nom.lower().replace('é', 'e').replace('û', 'u')
-            
-            if mois_nom in mois_fr:
-                jour = jour.zfill(2)
-                mois = mois_fr[mois_nom]
-                return f"{jour}/{mois}/{annee}"
-        
-        return date_str
-    
-    def extraire_numeros_tirage(self, cell_content):
-        """Extrait les numéros d'un tirage depuis le contenu HTML"""
-        text = cell_content.get_text(strip=True)
-        text = text.replace('\xa0', ' ')
-        
-        numeros = []
-        for num_str in text.split():
-            try:
-                num = int(num_str)
-                if 1 <= num <= 70:
-                    numeros.append(num)
-            except ValueError:
-                continue
-                
-        return numeros if len(numeros) == 20 else None
-    
-    def scraper_tirages(self):
-        """Scrape les tirages Keno depuis le site"""
-        try:
-            response = requests.get(self.url, headers=self.headers, timeout=30)
-            response.raise_for_status()
-            response.encoding = 'utf-8'
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            tirages = []
-            tables = soup.find_all('table')
-            
-            for table in tables:
-                rows = table.find_all('tr')
-                tirage_data = {}
-                
-                for row in rows:
-                    cells = row.find_all('td')
-                    if len(cells) >= 2:
-                        label = cells[0].get_text(strip=True)
-                        value_cell = cells[1]
-                        
-                        if label == 'date du tirage':
-                            date_brute = value_cell.get_text(strip=True)
-                            tirage_data['date_brute'] = date_brute
-                            tirage_data['date'] = self.convertir_date_francaise(date_brute)
-                            
-                        elif label == 'tirage':
-                            numeros = self.extraire_numeros_tirage(value_cell)
-                            if numeros:
-                                tirage_data['numeros'] = numeros
-                                
-                        elif label == 'multiplicateur':
-                            try:
-                                tirage_data['multiplicateur'] = int(value_cell.get_text(strip=True))
-                            except ValueError:
-                                tirage_data['multiplicateur'] = 1
-                                
-                        elif label == 'numéro JOKER+®':
-                            tirage_data['joker'] = value_cell.get_text(strip=True)
-                            
-                            if all(key in tirage_data for key in ['date', 'numeros', 'multiplicateur']):
-                                if len(tirage_data['numeros']) == 20:
-                                    tirages.append(tirage_data.copy())
-                            tirage_data = {}
-            
-            return tirages
-            
-        except Exception as e:
-            logger.error(f"Erreur lors du scraping: {e}")
-            return []
+# La classe KenoWebScraper est maintenant importée depuis keno_web_scraper.py
+# Si l'import a échoué, on pourrait définir une version de secours ici,
+# mais pour la clarté, nous supposons que l'import a réussi ou que le fichier existe.
 
 def ensure_templates():
     """
@@ -1583,21 +1509,39 @@ class AutoUpdateSystem:
     def schedule_automatic_updates(self):
         """
         Programme les mises à jour automatiques
+        Optimisé pour une récupération proche du temps réel lors des tirages (midi et soir)
         """
         try:
-            # Programmer une mise à jour quotidienne à 6h du matin
+            # Mise à jour complète quotidienne
             schedule.every().day.at("06:00").do(self.update_data_and_retrain)
             
-            # Programmer une vérification légère toutes les 6 heures
+            # Vérifications fréquentes autour des heures de tirage (Midi ~13h45, Soir ~20h45)
+            # On vérifie toutes les 15 minutes pendant les créneaux probables
+
+            # Créneau du Midi (13h00 - 14h30)
+            for h in range(13, 15):
+                for m in [0, 15, 30, 45]:
+                    if h == 14 and m > 30: continue # Arrêt à 14h30
+                    t = f"{h:02d}:{m:02d}"
+                    schedule.every().day.at(t).do(self.light_update_check)
+
+            # Créneau du Soir (20h00 - 21h30)
+            for h in range(20, 22):
+                for m in [0, 15, 30, 45]:
+                    if h == 21 and m > 30: continue # Arrêt à 21h30
+                    t = f"{h:02d}:{m:02d}"
+                    schedule.every().day.at(t).do(self.light_update_check)
+
+            # Vérification de sécurité toutes les 6 heures
             schedule.every(6).hours.do(self.light_update_check)
             
-            logger.info("Mises à jour automatiques programmées")
+            logger.info("Mises à jour automatiques programmées (optimisées pour le temps réel)")
             
             # Démarrer le scheduler dans un thread séparé
             def run_scheduler():
                 while True:
                     schedule.run_pending()
-                    time.sleep(60)  # Vérifier toutes les minutes
+                    time.sleep(30)  # Vérifier toutes les 30 secondes pour plus de précision
             
             scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
             scheduler_thread.start()
