@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍀 Keno Analyzer Pro - Analyse Avancée avec IA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+        }
+
+        .section h2 {
+            color: #4CAF50;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .config-section {
+            margin-bottom: 25px;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .config-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .config-item label {
+            font-weight: 600;
+            color: #E8F5E8;
+        }
+
+        .config-item select,
+        .config-item input {
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            font-size: 16px;
+        }
+
+        .config-item select option {
+            background: #2a5298;
+            color: #ffffff;
+        }
+
+        .methods-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .method-btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .method-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+        }
+
+        .method-btn.ml {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .method-btn.ml:hover {
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .keno-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 8px;
+            margin: 20px 0;
+            max-width: 600px;
+        }
+
+        .keno-number {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .keno-number.hot {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            border-color: #FF6B6B;
+            animation: glow 2s infinite alternate;
+        }
+
+        .keno-number.cold {
+            background: linear-gradient(135deg, #4ECDC4, #44A08D);
+            border-color: #4ECDC4;
+        }
+
+        .keno-number.predicted {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border-color: #4CAF50;
+            animation: glow 2s infinite alternate;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 10px rgba(76, 175, 80, 0.5); }
+            to { box-shadow: 0 0 20px rgba(76, 175, 80, 0.8); }
+        }
+
+        .predictions-section {
+            grid-column: 1 / -1;
+        }
+
+        .predictions-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .prediction-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .prediction-card.ml {
+            border-left-color: #667eea;
+        }
+
+        .prediction-card.user {
+            border-left-color: #FF6B6B;
+        }
+
+        .prediction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .prediction-title {
+            font-weight: 600;
+            color: #4CAF50;
+        }
+
+        .prediction-title.ml {
+            color: #667eea;
+        }
+
+        .prediction-title.user {
+            color: #FF6B6B;
+        }
+
+        .confidence-score {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .prediction-numbers {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .prediction-number {
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border-radius: 6px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .prediction-number.ml {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .prediction-number.user {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+        }
+
+        .prediction-meta {
+            font-size: 12px;
+            opacity: 0.8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .accuracy-badge {
+            background: #4CAF50;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+
+        .accuracy-badge.low {
+            background: #FF6B6B;
+        }
+
+        .accuracy-badge.medium {
+            background: #FFA726;
+        }
+
+        .ml-controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .ml-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .ml-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .ml-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #4CAF50;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #4CAF50;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 600;
+        }
+
+        .message.success {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+            color: #4CAF50;
+        }
+
+        .message.error {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid #f44336;
+            color: #f44336;
+        }
+
+        .message.info {
+            background: rgba(33, 150, 243, 0.2);
+            border: 1px solid #2196F3;
+            color: #2196F3;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .leaderboard-table th,
+        .leaderboard-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .leaderboard-table th {
+            background: rgba(255, 255, 255, 0.1);
+            font-weight: 600;
+            color: #4CAF50;
+        }
+
+        .leaderboard-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .predictor-type-badge {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .predictor-type-badge.ml {
+            background: #667eea;
+            color: white;
+        }
+
+        .predictor-type-badge.user {
+            background: #FF6B6B;
+            color: white;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .user-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .user-info h3 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+
+        .user-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+
+        .user-stat {
+            text-align: center;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .user-stat-value {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #4CAF50;
+        }
+
+        .user-stat-label {
+            font-size: 0.8em;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- En-tête -->
+        <div class="header">
+            <h1>🍀 Keno Analyzer Pro</h1>
+            <p>Analyse Avancée avec Intelligence Artificielle</p>
+        </div>
+
+        <!-- Barre de statut -->
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-indicator"></div>
+                <span id="server-status">Connexion...</span>
+            </div>
+            <div class="status-item">
+                <span>📊 <span id="total-tirages">0</span> tirages disponibles</span>
+            </div>
+            <div class="status-item">
+                <span>👥 <span id="active-users">0</span> utilisateurs actifs</span>
+            </div>
+            <div class="status-item">
+                <span>🤖 ML: <span id="ml-status">Prêt</span></span>
+            </div>
+            <button class="refresh-btn" onclick="refreshStatus()">🔄 Actualiser</button>
+        </div>
+
+        <!-- Contenu principal -->
+        <div class="main-content">
+            <!-- Configuration et Méthodes -->
+            <div class="section">
+                <h2>⚙️ Configuration</h2>
+                
+                <div class="config-section">
+                    <div class="config-grid">
+                        <div class="config-item">
+                            <label for="num-numbers">Nombre de numéros :</label>
+                            <select id="num-numbers">
+                                <option value="4">4 numéros</option>
+                                <option value="6">6 numéros</option>
+                                <option value="8" selected>8 numéros</option>
+                                <option value="10">10 numéros</option>
+                                <option value="12">12 numéros</option>
+                            </select>
+                        </div>
+                        <div class="config-item">
+                            <label for="num-grilles">Nombre de grilles :</label>
+                            <select id="num-grilles">
+                                <option value="1" selected>1 grille</option>
+                                <option value="2">2 grilles</option>
+                                <option value="3">3 grilles</option>
+                                <option value="5">5 grilles</option>
+                            </select>
+                        </div>
+                        <div class="config-item">
+                            <label for="objectif-gain">Objectif de gain (€) :</label>
+                            <input type="number" id="objectif-gain" value="100" min="1">
+                        </div>
+                    </div>
+                </div>
+
+                <h2>🧠 Méthodes d'Analyse Avancées</h2>
+                <div class="methods-grid">
+                    <button class="method-btn" onclick="predict('frequency')">📊 Analyse Fréquences</button>
+                    <button class="method-btn" onclick="predict('gaps')">📈 Analyse Écarts</button>
+                    <button class="method-btn" onclick="predict('cycles')">🔄 Analyse Cycles</button>
+                    <button class="method-btn" onclick="predict('mixed')">🎯 Stratégie Mixte</button>
+                    <button class="method-btn ml" onclick="predict('ml')">🤖 Machine Learning</button>
+                    <button class="method-btn" onclick="predict('fibonacci')">🌀 Pondération Fibonacci</button>
+                    <button class="method-btn" onclick="predict('sums')">➕ Analyse Sommes</button>
+                    <button class="method-btn" onclick="predict('complete')">🔥 ANALYSE COMPLÈTE</button>
+                </div>
+
+                <div class="ml-controls">
+                    <button class="ml-btn" onclick="retrainML()" id="retrain-btn">🔄 Réentraîner</button>
+                    <button class="ml-btn" onclick="generateAllMLPredictions()" id="predict-all-btn">🎯 Nouvelles Prédictions IA</button>
+                </div>
+
+                <div id="messages"></div>
+            </div>
+
+            <!-- Grille Keno Interactive -->
+            <div class="section">
+                <h2>🎲 Grille Keno Interactive</h2>
+                <div class="keno-grid" id="keno-grid">
+                    <!-- Généré par JavaScript -->
+                </div>
+                <div style="margin-top: 15px; font-size: 14px;">
+                    <span style="color: #FF6B6B;">🔥 Numéros Chauds</span> &nbsp;&nbsp;
+                    <span style="color: #4ECDC4;">❄️ Numéros Froids</span> &nbsp;&nbsp;
+                    <span style="color: #4CAF50;">🎯 Prédictions IA</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations utilisateur -->
+        <div class="section user-info" id="user-info" style="display: none;">
+            <h3>👤 Vos Performances</h3>
+            <div class="user-stats" id="user-stats">
+                <!-- Généré par JavaScript -->
+            </div>
+        </div>
+
+        <!-- Section des prédictions -->
+        <div class="section predictions-section">
+            <h2>🔮 Prédictions Persistantes</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <button class="refresh-btn" onclick="loadAllPredictions()">🔄 Actualiser</button>
+                <button class="refresh-btn" onclick="loadLeaderboard()">🏆 Classement</button>
+            </div>
+            
+            <div class="predictions-container" id="predictions-container">
+                <div class="prediction-card">
+                    <div class="prediction-header">
+                        <div class="prediction-title">Aucune prédiction sauvegardée</div>
+                    </div>
+                    <p>Utilisez les méthodes d'analyse ci-dessus pour générer des prédictions.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section du classement -->
+        <div class="section" id="leaderboard-section" style="display: none;">
+            <h2>🏆 Classement Unifié</h2>
+            <table class="leaderboard-table" id="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>Rang</th>
+                        <th>Prédicteur</th>
+                        <th>Type</th>
+                        <th>Prédictions</th>
+                        <th>Évaluées</th>
+                        <th>Précision Moy.</th>
+                        <th>Meilleur Score</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body">
+                    <!-- Généré par JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let currentPredictions = [];
+        let userSession = null;
+        let systemStatus = {};
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeKenoGrid();
+            refreshStatus();
+            loadAllPredictions();
+            loadUserPerformance();
+            
+            // Actualisation automatique toutes les 30 secondes
+            setInterval(refreshStatus, 30000);
+            setInterval(loadAllPredictions, 60000);
+        });
+
+        // Initialiser la grille Keno
+        function initializeKenoGrid() {
+            const grid = document.getElementById('keno-grid');
+            grid.innerHTML = '';
+            
+            for (let i = 1; i <= 70; i++) {
+                const numberDiv = document.createElement('div');
+                numberDiv.className = 'keno-number';
+                numberDiv.textContent = i;
+                numberDiv.id = `number-${i}`;
+                grid.appendChild(numberDiv);
+            }
+        }
+
+        // Actualiser le statut du système
+        async function refreshStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                systemStatus = data;
+                
+                document.getElementById('server-status').textContent = 
+                    data.status === 'connected' ? 'Serveur connecté' : 'Erreur de connexion';
+                document.getElementById('total-tirages').textContent = data.total_tirages || 0;
+                document.getElementById('active-users').textContent = data.active_users || 0;
+                
+                const mlStatusText = data.ml_status?.is_training ? 'Entraînement...' : 'Prêt';
+                document.getElementById('ml-status').textContent = mlStatusText;
+                
+                // Mettre à jour les boutons ML
+                const retrainBtn = document.getElementById('retrain-btn');
+                const predictAllBtn = document.getElementById('predict-all-btn');
+                
+                if (data.ml_status?.is_training) {
+                    retrainBtn.disabled = true;
+                    retrainBtn.innerHTML = '⏳ Entraînement...';
+                    predictAllBtn.disabled = true;
+                } else {
+                    retrainBtn.disabled = false;
+                    retrainBtn.innerHTML = '🔄 Réentraîner';
+                    predictAllBtn.disabled = false;
+                }
+                
+            } catch (error) {
+                console.error('Erreur lors de l\'actualisation du statut:', error);
+                showMessage('Erreur de connexion au serveur', 'error');
+            }
+        }
+
+        // Générer une prédiction
+        async function predict(method) {
+            const numNumbers = document.getElementById('num-numbers').value;
+            
+            showMessage('Génération de la prédiction...', 'info');
+            
+            try {
+                const response = await fetch(`/api/predict/${method}?numbers=${numNumbers}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(`${data.method} terminée !`, 'success');
+                    
+                    // Mettre à jour la grille
+                    updateKenoGrid(data.predicted_numbers, 'predicted');
+                    
+                    // Recharger les prédictions
+                    setTimeout(() => {
+                        loadAllPredictions();
+                        loadUserPerformance();
+                    }, 1000);
+                    
+                } else {
+                    showMessage(`Erreur: ${data.error}`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Erreur lors de la prédiction:', error);
+                showMessage('Erreur lors de la génération de la prédiction', 'error');
+            }
+        }
+
+        // Mettre à jour la grille Keno
+        function updateKenoGrid(numbers, type) {
+            // Réinitialiser la grille
+            for (let i = 1; i <= 70; i++) {
+                const numberDiv = document.getElementById(`number-${i}`);
+                numberDiv.className = 'keno-number';
+            }
+            
+            // Appliquer le nouveau style
+            numbers.forEach(num => {
+                const numberDiv = document.getElementById(`number-${num}`);
+                if (numberDiv) {
+                    numberDiv.classList.add(type);
+                }
+            });
+        }
+
+        // Charger toutes les prédictions
+        async function loadAllPredictions() {
+            try {
+                const response = await fetch('/api/predictions/by-predictor?limit=10');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayPredictions(data.predictors);
+                }
+                
+            } catch (error) {
+                console.error('Erreur lors du chargement des prédictions:', error);
+            }
+        }
+
+        // Afficher les prédictions
+        function displayPredictions(predictors) {
+            const container = document.getElementById('predictions-container');
+            container.innerHTML = '';
+            
+            if (!predictors || predictors.length === 0) {
+                container.innerHTML = `
+                    <div class="prediction-card">
+                        <div class="prediction-header">
+                            <div class="prediction-title">Aucune prédiction sauvegardée</div>
+                        </div>
+                        <p>Utilisez les méthodes d'analyse ci-dessus pour générer des prédictions.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            predictors.forEach(predictor => {
+                predictor.predictions.forEach(prediction => {
+                    const card = createPredictionCard(predictor, prediction);
+                    container.appendChild(card);
+                });
+            });
+        }
+
+        // Créer une carte de prédiction
+        function createPredictionCard(predictor, prediction) {
+            const card = document.createElement('div');
+            const isML = predictor.predictor_type === 'ML_MODEL';
+            const cardClass = isML ? 'ml' : 'user';
+            
+            card.className = `prediction-card ${cardClass}`;
+            
+            const accuracy = prediction.accuracy_percentage || 0;
+            const accuracyClass = accuracy >= 70 ? '' : accuracy >= 40 ? 'medium' : 'low';
+            
+            const confidenceScore = prediction.confidence_score || 0;
+            
+            card.innerHTML = `
+                <div class="prediction-header">
+                    <div class="prediction-title ${cardClass}">
+                        ${predictor.display_name} - ${prediction.prediction_method}
+                    </div>
+                    ${confidenceScore > 0 ? `<div class="confidence-score">Confiance: ${(confidenceScore * 100).toFixed(1)}%</div>` : ''}
+                </div>
+                <div class="prediction-numbers">
+                    ${prediction.predicted_numbers.map(num => 
+                        `<div class="prediction-number ${cardClass}">${num}</div>`
+                    ).join('')}
+                </div>
+                <div class="prediction-meta">
+                    <span>Créé: ${new Date(prediction.created_at).toLocaleString('fr-FR')}</span>
+                    ${prediction.is_evaluated ? 
+                        `<div class="accuracy-badge ${accuracyClass}">${accuracy.toFixed(1)}% (${prediction.correct_count}/20)</div>` :
+                        '<span>En attente d\'évaluation</span>'
+                    }
+                </div>
+            `;
+            
+            return card;
+        }
+
+        // Charger les performances utilisateur
+        async function loadUserPerformance() {
+            try {
+                const response = await fetch('/api/user/performance');
+                const data = await response.json();
+                
+                if (data.success && data.performance.length > 0) {
+                    displayUserPerformance(data);
+                }
+                
+            } catch (error) {
+                console.error('Erreur lors du chargement des performances utilisateur:', error);
+            }
+        }
+
+        // Afficher les performances utilisateur
+        function displayUserPerformance(data) {
+            const userInfo = document.getElementById('user-info');
+            const userStats = document.getElementById('user-stats');
+            
+            userInfo.style.display = 'block';
+            
+            const totalPredictions = data.performance.reduce((sum, p) => sum + p.total_predictions, 0);
+            const totalEvaluated = data.performance.reduce((sum, p) => sum + p.total_evaluated, 0);
+            const avgAccuracy = data.performance.reduce((sum, p) => sum + (p.average_accuracy || 0), 0) / data.performance.length;
+            const bestScore = Math.max(...data.performance.map(p => p.best_score || 0));
+            
+            userStats.innerHTML = `
+                <div class="user-stat">
+                    <div class="user-stat-value">${data.user_id}</div>
+                    <div class="user-stat-label">Votre ID</div>
+                </div>
+                <div class="user-stat">
+                    <div class="user-stat-value">${totalPredictions}</div>
+                    <div class="user-stat-label">Prédictions</div>
+                </div>
+                <div class="user-stat">
+                    <div class="user-stat-value">${totalEvaluated}</div>
+                    <div class="user-stat-label">Évaluées</div>
+                </div>
+                <div class="user-stat">
+                    <div class="user-stat-value">${avgAccuracy.toFixed(1)}%</div>
+                    <div class="user-stat-label">Précision Moy.</div>
+                </div>
+                <div class="user-stat">
+                    <div class="user-stat-value">${bestScore}</div>
+                    <div class="user-stat-label">Meilleur Score</div>
+                </div>
+            `;
+        }
+
+        // Charger le classement
+        async function loadLeaderboard() {
+            try {
+                const response = await fetch('/api/leaderboard?limit=20');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLeaderboard(data.leaderboard);
+                }
+                
+            } catch (error) {
+                console.error('Erreur lors du chargement du classement:', error);
+            }
+        }
+
+        // Afficher le classement
+        function displayLeaderboard(leaderboard) {
+            const section = document.getElementById('leaderboard-section');
+            const tbody = document.getElementById('leaderboard-body');
+            
+            section.style.display = 'block';
+            tbody.innerHTML = '';
+            
+            leaderboard.forEach((entry, index) => {
+                const row = document.createElement('tr');
+                const typeClass = entry.predictor_type === 'ML_MODEL' ? 'ml' : 'user';
+                
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${entry.display_name}</td>
+                    <td><span class="predictor-type-badge ${typeClass}">${entry.predictor_type === 'ML_MODEL' ? 'IA' : 'Utilisateur'}</span></td>
+                    <td>${entry.total_predictions}</td>
+                    <td>${entry.total_evaluated}</td>
+                    <td>${entry.avg_accuracy.toFixed(1)}%</td>
+                    <td>${entry.best_score}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // Réentraîner les modèles ML
+        async function retrainML() {
+            if (!confirm('Voulez-vous vraiment réentraîner les modèles ML ? Cela peut prendre plusieurs minutes.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/ml/retrain', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    refreshStatus();
+                } else {
+                    showMessage(`Erreur: ${data.error}`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Erreur lors du réentraînement:', error);
+                showMessage('Erreur lors du réentraînement', 'error');
+            }
+        }
+
+        // Générer toutes les prédictions ML
+        async function generateAllMLPredictions() {
+            const numNumbers = document.getElementById('num-numbers').value;
+            
+            showMessage('Génération des prédictions IA...', 'info');
+            
+            try {
+                const response = await fetch('/api/ml/predict-all', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ numbers: parseInt(numNumbers) })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    
+                    // Mettre à jour la grille avec la première prédiction
+                    const firstPrediction = Object.values(data.predictions)[0];
+                    if (firstPrediction) {
+                        updateKenoGrid(firstPrediction.predicted_numbers, 'predicted');
+                    }
+                    
+                    // Recharger les prédictions
+                    setTimeout(() => {
+                        loadAllPredictions();
+                    }, 1000);
+                    
+                } else {
+                    showMessage(`Erreur: ${data.error}`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Erreur lors de la génération des prédictions ML:', error);
+                showMessage('Erreur lors de la génération des prédictions ML', 'error');
+            }
+        }
+
+        // Afficher un message
+        function showMessage(text, type) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = text;
+            
+            messagesDiv.appendChild(messageDiv);
+            
+            // Supprimer le message après 5 secondes
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
+

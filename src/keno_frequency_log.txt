@@ -1,0 +1,342 @@
+2025-07-10 23:40:09,218 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-10 23:40:09,219 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 23:40:09,222 - INFO -  * Restarting with stat
+2025-07-10 23:40:10,919 - WARNING -  * Debugger is active!
+2025-07-10 23:40:10,919 - INFO -  * Debugger PIN: 138-941-775
+2025-07-10 23:40:43,093 - INFO - 10.24.226.1 - - [10/Jul/2025 23:40:43] "[35m[1mGET / HTTP/1.1[0m" 500 -
+2025-07-10 23:40:43,121 - INFO - 10.24.226.1 - - [10/Jul/2025 23:40:43] "GET /?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+2025-07-10 23:40:43,125 - INFO - 10.24.226.1 - - [10/Jul/2025 23:40:43] "GET /?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
+2025-07-10 23:40:43,180 - INFO - 10.24.226.1 - - [10/Jul/2025 23:40:43] "GET /?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1" 200 -
+2025-07-10 23:41:09,950 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-10 23:41:09,950 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 23:41:09,951 - INFO -  * Restarting with stat
+2025-07-10 23:41:11,731 - WARNING -  * Debugger is active!
+2025-07-10 23:41:11,731 - INFO -  * Debugger PIN: 483-062-981
+2025-07-10 23:41:42,091 - INFO - 10.24.226.1 - - [10/Jul/2025 23:41:42] "GET / HTTP/1.1" 200 -
+2025-07-10 23:41:42,134 - INFO - 10.24.226.1 - - [10/Jul/2025 23:41:42] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-07-10 23:42:04,653 - INFO - 10.24.226.1 - - [10/Jul/2025 23:42:04] "GET /api/status HTTP/1.1" 200 -
+2025-07-10 23:42:21,211 - INFO - 10.24.226.1 - - [10/Jul/2025 23:42:21] "GET /api/results HTTP/1.1" 200 -
+2025-07-10 23:42:26,958 - INFO - 10.24.226.1 - - [10/Jul/2025 23:42:26] "GET / HTTP/1.1" 200 -
+2025-07-10 23:42:31,891 - INFO - 10.24.226.1 - - [10/Jul/2025 23:42:31] "[31m[1mGET /api/update_data HTTP/1.1[0m" 405 -
+2025-07-10 23:42:39,719 - INFO - 10.24.226.1 - - [10/Jul/2025 23:42:39] "POST /api/update_data HTTP/1.1" 200 -
+2025-07-10 23:42:44,156 - INFO - 10.24.226.1 - - [10/Jul/2025 23:42:44] "GET /api/status HTTP/1.1" 200 -
+2025-07-10 23:43:01,932 - INFO - 10.24.226.1 - - [10/Jul/2025 23:43:01] "HEAD / HTTP/1.1" 200 -
+2025-07-10 23:43:01,938 - INFO - 10.24.226.1 - - [10/Jul/2025 23:43:01] "GET / HTTP/1.1" 200 -
+2025-07-10 23:43:29,074 - INFO - 10.24.226.1 - - [10/Jul/2025 23:43:29] "GET / HTTP/1.1" 200 -
+2025-07-10 23:43:29,307 - INFO - 10.24.226.1 - - [10/Jul/2025 23:43:29] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-07-10 23:48:59,594 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-10 23:48:59,594 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 23:48:59,595 - INFO -  * Restarting with stat
+2025-07-10 23:49:01,324 - WARNING -  * Debugger is active!
+2025-07-10 23:49:01,324 - INFO -  * Debugger PIN: 119-245-082
+2025-07-10 23:49:33,036 - INFO - 10.24.226.1 - - [10/Jul/2025 23:49:33] "GET / HTTP/1.1" 200 -
+2025-07-10 23:49:33,193 - INFO - 10.24.226.1 - - [10/Jul/2025 23:49:33] "[33mGET /api/stats HTTP/1.1[0m" 404 -
+2025-07-10 23:49:33,195 - INFO - 10.24.226.1 - - [10/Jul/2025 23:49:33] "[33mGET /api/last-draw HTTP/1.1[0m" 404 -
+2025-07-10 23:49:33,200 - INFO - 10.24.226.1 - - [10/Jul/2025 23:49:33] "[33mGET /api/predictions HTTP/1.1[0m" 404 -
+2025-07-10 23:49:33,204 - INFO - 10.24.226.1 - - [10/Jul/2025 23:49:33] "[33mGET /health HTTP/1.1[0m" 404 -
+2025-07-10 23:50:15,244 - INFO - 10.24.226.1 - - [10/Jul/2025 23:50:15] "POST /api/analyze HTTP/1.1" 200 -
+2025-07-10 23:50:15,244 - INFO - Calcul des fréquences des numéros Keno...
+2025-07-10 23:50:15,403 - WARNING - Aucun numéro valide trouvé
+2025-07-10 23:50:15,403 - INFO - Analyse des cycles sur plusieurs fenêtres...
+2025-07-10 23:50:15,403 - INFO - Analyse des cycles avec fenêtre de 20 tirages...
+2025-07-10 23:50:16,332 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:50:16,332 - INFO - Fenêtre 20: analyse terminée
+2025-07-10 23:50:16,332 - INFO - Analyse des cycles avec fenêtre de 50 tirages...
+2025-07-10 23:50:17,139 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:50:17,139 - INFO - Fenêtre 50: analyse terminée
+2025-07-10 23:50:17,139 - INFO - Analyse des cycles avec fenêtre de 100 tirages...
+2025-07-10 23:50:17,980 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:50:17,980 - INFO - Fenêtre 100: analyse terminée
+2025-07-10 23:50:17,981 - INFO - Application de la pondération Fibonacci adaptative...
+2025-07-10 23:50:17,981 - INFO - Pondération adaptative calculée pour 0 numéros
+2025-07-10 23:52:17,774 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-10 23:52:17,775 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 23:52:17,775 - INFO -  * Restarting with stat
+2025-07-10 23:52:19,430 - WARNING -  * Debugger is active!
+2025-07-10 23:52:19,430 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:52:50,216 - INFO - 10.24.226.1 - - [10/Jul/2025 23:52:50] "GET / HTTP/1.1" 200 -
+2025-07-10 23:52:50,249 - INFO - 10.24.226.1 - - [10/Jul/2025 23:52:50] "[33mGET /api/last-draw HTTP/1.1[0m" 404 -
+2025-07-10 23:52:50,250 - INFO - 10.24.226.1 - - [10/Jul/2025 23:52:50] "[33mGET /api/stats HTTP/1.1[0m" 404 -
+2025-07-10 23:52:50,258 - INFO - 10.24.226.1 - - [10/Jul/2025 23:52:50] "[33mGET /api/predictions HTTP/1.1[0m" 404 -
+2025-07-10 23:52:50,259 - INFO - 10.24.226.1 - - [10/Jul/2025 23:52:50] "[33mGET /health HTTP/1.1[0m" 404 -
+2025-07-10 23:53:17,103 - INFO - Calcul des fréquences des numéros Keno...
+2025-07-10 23:53:17,103 - INFO - 10.24.226.1 - - [10/Jul/2025 23:53:17] "POST /api/analyze HTTP/1.1" 200 -
+2025-07-10 23:53:17,251 - WARNING - Aucun numéro valide trouvé
+2025-07-10 23:53:17,252 - INFO - Analyse des cycles sur plusieurs fenêtres...
+2025-07-10 23:53:17,252 - INFO - Analyse des cycles avec fenêtre de 20 tirages...
+2025-07-10 23:53:18,114 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:53:18,114 - INFO - Fenêtre 20: analyse terminée
+2025-07-10 23:53:18,114 - INFO - Analyse des cycles avec fenêtre de 50 tirages...
+2025-07-10 23:53:18,878 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:53:18,878 - INFO - Fenêtre 50: analyse terminée
+2025-07-10 23:53:18,878 - INFO - Analyse des cycles avec fenêtre de 100 tirages...
+2025-07-10 23:53:19,680 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:53:19,680 - INFO - Fenêtre 100: analyse terminée
+2025-07-10 23:53:19,680 - INFO - Application de la pondération Fibonacci adaptative...
+2025-07-10 23:53:19,680 - INFO - Pondération adaptative calculée pour 0 numéros
+2025-07-10 23:55:00,802 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:01,173 - INFO -  * Restarting with stat
+2025-07-10 23:55:02,776 - WARNING -  * Debugger is active!
+2025-07-10 23:55:02,776 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:03,785 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:04,125 - INFO -  * Restarting with stat
+2025-07-10 23:55:05,648 - WARNING -  * Debugger is active!
+2025-07-10 23:55:05,648 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:08,669 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:08,987 - INFO -  * Restarting with stat
+2025-07-10 23:55:10,730 - WARNING -  * Debugger is active!
+2025-07-10 23:55:10,731 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:11,740 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:12,218 - INFO -  * Restarting with stat
+2025-07-10 23:55:13,909 - WARNING -  * Debugger is active!
+2025-07-10 23:55:13,910 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:14,919 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:15,344 - INFO -  * Restarting with stat
+2025-07-10 23:55:17,025 - WARNING -  * Debugger is active!
+2025-07-10 23:55:17,025 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:20,041 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:20,464 - INFO -  * Restarting with stat
+2025-07-10 23:55:22,155 - WARNING -  * Debugger is active!
+2025-07-10 23:55:22,155 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:24,168 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:24,584 - INFO -  * Restarting with stat
+2025-07-10 23:55:26,285 - WARNING -  * Debugger is active!
+2025-07-10 23:55:26,285 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:27,295 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:27,722 - INFO -  * Restarting with stat
+2025-07-10 23:55:29,417 - WARNING -  * Debugger is active!
+2025-07-10 23:55:29,418 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:32,434 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:32,852 - INFO -  * Restarting with stat
+2025-07-10 23:55:34,541 - WARNING -  * Debugger is active!
+2025-07-10 23:55:34,542 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:35,551 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:36,014 - INFO -  * Restarting with stat
+2025-07-10 23:55:37,654 - WARNING -  * Debugger is active!
+2025-07-10 23:55:37,654 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:39,666 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:40,055 - INFO -  * Restarting with stat
+2025-07-10 23:55:41,668 - WARNING -  * Debugger is active!
+2025-07-10 23:55:41,668 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:44,685 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:45,144 - INFO -  * Restarting with stat
+2025-07-10 23:55:46,814 - WARNING -  * Debugger is active!
+2025-07-10 23:55:46,814 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:48,827 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:49,277 - INFO -  * Restarting with stat
+2025-07-10 23:55:51,047 - WARNING -  * Debugger is active!
+2025-07-10 23:55:51,047 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:55:54,066 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:55:54,562 - INFO -  * Restarting with stat
+2025-07-10 23:55:56,312 - WARNING -  * Debugger is active!
+2025-07-10 23:55:56,312 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:56:00,337 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:56:00,696 - INFO -  * Restarting with stat
+2025-07-10 23:56:02,326 - WARNING -  * Debugger is active!
+2025-07-10 23:56:02,326 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:56:04,337 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:56:04,674 - INFO -  * Restarting with stat
+2025-07-10 23:56:06,291 - WARNING -  * Debugger is active!
+2025-07-10 23:56:06,291 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:56:08,302 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:56:08,644 - INFO -  * Restarting with stat
+2025-07-10 23:56:10,208 - WARNING -  * Debugger is active!
+2025-07-10 23:56:10,208 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:56:13,221 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-10 23:56:13,531 - INFO -  * Restarting with stat
+2025-07-10 23:56:15,065 - WARNING -  * Debugger is active!
+2025-07-10 23:56:15,065 - INFO -  * Debugger PIN: 914-236-815
+2025-07-10 23:56:23,661 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-10 23:56:23,661 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 23:56:23,661 - INFO -  * Restarting with stat
+2025-07-10 23:56:25,189 - WARNING -  * Debugger is active!
+2025-07-10 23:56:25,189 - INFO -  * Debugger PIN: 109-266-749
+2025-07-10 23:57:02,065 - INFO - 10.24.226.1 - - [10/Jul/2025 23:57:02] "[36mGET / HTTP/1.1[0m" 304 -
+2025-07-10 23:57:02,105 - INFO - 10.24.226.1 - - [10/Jul/2025 23:57:02] "[33mGET /api/stats HTTP/1.1[0m" 404 -
+2025-07-10 23:57:02,111 - INFO - 10.24.226.1 - - [10/Jul/2025 23:57:02] "[33mGET /api/last-draw HTTP/1.1[0m" 404 -
+2025-07-10 23:57:02,113 - INFO - 10.24.226.1 - - [10/Jul/2025 23:57:02] "[33mGET /api/predictions HTTP/1.1[0m" 404 -
+2025-07-10 23:57:02,114 - INFO - 10.24.226.1 - - [10/Jul/2025 23:57:02] "[33mGET /health HTTP/1.1[0m" 404 -
+2025-07-10 23:57:16,460 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-10 23:57:16,461 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 23:57:16,461 - INFO -  * Restarting with stat
+2025-07-10 23:57:18,003 - WARNING -  * Debugger is active!
+2025-07-10 23:57:18,003 - INFO -  * Debugger PIN: 697-913-997
+2025-07-10 23:57:50,587 - INFO - 10.24.226.1 - - [10/Jul/2025 23:57:50] "[36mGET / HTTP/1.1[0m" 304 -
+2025-07-10 23:57:50,618 - INFO - 10.24.226.1 - - [10/Jul/2025 23:57:50] "[33mGET /api/last-draw HTTP/1.1[0m" 404 -
+2025-07-10 23:57:50,620 - INFO - 10.24.226.1 - - [10/Jul/2025 23:57:50] "[33mGET /api/stats HTTP/1.1[0m" 404 -
+2025-07-10 23:57:50,623 - INFO - 10.24.226.1 - - [10/Jul/2025 23:57:50] "[33mGET /health HTTP/1.1[0m" 404 -
+2025-07-10 23:57:50,624 - INFO - 10.24.226.1 - - [10/Jul/2025 23:57:50] "[33mGET /api/predictions HTTP/1.1[0m" 404 -
+2025-07-10 23:58:12,137 - INFO - 10.24.226.1 - - [10/Jul/2025 23:58:12] "POST /api/analyze HTTP/1.1" 200 -
+2025-07-10 23:58:12,137 - INFO - Calcul des fréquences des numéros Keno...
+2025-07-10 23:58:12,292 - WARNING - Aucun numéro valide trouvé
+2025-07-10 23:58:12,292 - INFO - Analyse des cycles sur plusieurs fenêtres...
+2025-07-10 23:58:12,292 - INFO - Analyse des cycles avec fenêtre de 20 tirages...
+2025-07-10 23:58:13,175 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:13,175 - INFO - Fenêtre 20: analyse terminée
+2025-07-10 23:58:13,175 - INFO - Analyse des cycles avec fenêtre de 50 tirages...
+2025-07-10 23:58:13,972 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:13,972 - INFO - Fenêtre 50: analyse terminée
+2025-07-10 23:58:13,972 - INFO - Analyse des cycles avec fenêtre de 100 tirages...
+2025-07-10 23:58:14,764 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:14,764 - INFO - Fenêtre 100: analyse terminée
+2025-07-10 23:58:14,764 - INFO - Application de la pondération Fibonacci adaptative...
+2025-07-10 23:58:14,765 - INFO - Pondération adaptative calculée pour 0 numéros
+2025-07-10 23:58:22,318 - INFO - Calcul des fréquences des numéros Keno...
+2025-07-10 23:58:22,474 - WARNING - Aucun numéro valide trouvé
+2025-07-10 23:58:22,475 - INFO - Calcul des écarts (gaps)...
+2025-07-10 23:58:22,624 - INFO - Calcul des écarts terminé
+2025-07-10 23:58:22,624 - INFO - Analyse des patterns...
+2025-07-10 23:58:22,770 - INFO - Analyse des patterns terminée
+2025-07-10 23:58:22,771 - INFO - 10.24.226.1 - - [10/Jul/2025 23:58:22] "POST /api/frequency_analysis HTTP/1.1" 200 -
+2025-07-10 23:58:41,814 - INFO - Calcul des fréquences des numéros Keno...
+2025-07-10 23:58:41,814 - INFO - 10.24.226.1 - - [10/Jul/2025 23:58:41] "POST /api/analyze HTTP/1.1" 200 -
+2025-07-10 23:58:41,980 - WARNING - Aucun numéro valide trouvé
+2025-07-10 23:58:41,980 - INFO - Analyse des cycles sur plusieurs fenêtres...
+2025-07-10 23:58:41,980 - INFO - Analyse des cycles avec fenêtre de 20 tirages...
+2025-07-10 23:58:42,775 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:42,775 - INFO - Fenêtre 20: analyse terminée
+2025-07-10 23:58:42,775 - INFO - Analyse des cycles avec fenêtre de 50 tirages...
+2025-07-10 23:58:43,568 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:43,568 - INFO - Fenêtre 50: analyse terminée
+2025-07-10 23:58:43,568 - INFO - Analyse des cycles avec fenêtre de 100 tirages...
+2025-07-10 23:58:44,491 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:44,491 - INFO - Fenêtre 100: analyse terminée
+2025-07-10 23:58:44,491 - INFO - Application de la pondération Fibonacci adaptative...
+2025-07-10 23:58:44,491 - INFO - Pondération adaptative calculée pour 0 numéros
+2025-07-10 23:58:50,379 - INFO - Calcul des fréquences des numéros Keno...
+2025-07-10 23:58:50,379 - INFO - 10.24.226.1 - - [10/Jul/2025 23:58:50] "POST /api/analyze HTTP/1.1" 200 -
+2025-07-10 23:58:50,527 - WARNING - Aucun numéro valide trouvé
+2025-07-10 23:58:50,527 - INFO - Analyse des cycles sur plusieurs fenêtres...
+2025-07-10 23:58:50,527 - INFO - Analyse des cycles avec fenêtre de 20 tirages...
+2025-07-10 23:58:51,344 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:51,344 - INFO - Fenêtre 20: analyse terminée
+2025-07-10 23:58:51,344 - INFO - Analyse des cycles avec fenêtre de 50 tirages...
+2025-07-10 23:58:52,136 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:52,136 - INFO - Fenêtre 50: analyse terminée
+2025-07-10 23:58:52,136 - INFO - Analyse des cycles avec fenêtre de 100 tirages...
+2025-07-10 23:58:52,919 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:52,919 - INFO - Fenêtre 100: analyse terminée
+2025-07-10 23:58:52,919 - INFO - Application de la pondération Fibonacci adaptative...
+2025-07-10 23:58:52,919 - INFO - Pondération adaptative calculée pour 0 numéros
+2025-07-10 23:58:55,653 - INFO - 10.24.226.1 - - [10/Jul/2025 23:58:55] "POST /api/analyze HTTP/1.1" 200 -
+2025-07-10 23:58:55,653 - INFO - Calcul des fréquences des numéros Keno...
+2025-07-10 23:58:55,801 - WARNING - Aucun numéro valide trouvé
+2025-07-10 23:58:55,801 - INFO - Analyse des cycles sur plusieurs fenêtres...
+2025-07-10 23:58:55,801 - INFO - Analyse des cycles avec fenêtre de 20 tirages...
+2025-07-10 23:58:56,646 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:56,646 - INFO - Fenêtre 20: analyse terminée
+2025-07-10 23:58:56,646 - INFO - Analyse des cycles avec fenêtre de 50 tirages...
+2025-07-10 23:58:57,512 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:57,512 - INFO - Fenêtre 50: analyse terminée
+2025-07-10 23:58:57,512 - INFO - Analyse des cycles avec fenêtre de 100 tirages...
+2025-07-10 23:58:58,338 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:58:58,338 - INFO - Fenêtre 100: analyse terminée
+2025-07-10 23:58:58,338 - INFO - Application de la pondération Fibonacci adaptative...
+2025-07-10 23:58:58,338 - INFO - Pondération adaptative calculée pour 0 numéros
+2025-07-10 23:59:09,075 - INFO - Calcul des fréquences des numéros Keno...
+2025-07-10 23:59:09,076 - INFO - 10.24.226.1 - - [10/Jul/2025 23:59:09] "POST /api/analyze HTTP/1.1" 200 -
+2025-07-10 23:59:09,226 - WARNING - Aucun numéro valide trouvé
+2025-07-10 23:59:09,226 - INFO - Analyse des cycles sur plusieurs fenêtres...
+2025-07-10 23:59:09,226 - INFO - Analyse des cycles avec fenêtre de 20 tirages...
+2025-07-10 23:59:10,072 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:59:10,072 - INFO - Fenêtre 20: analyse terminée
+2025-07-10 23:59:10,072 - INFO - Analyse des cycles avec fenêtre de 50 tirages...
+2025-07-10 23:59:10,923 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:59:10,924 - INFO - Fenêtre 50: analyse terminée
+2025-07-10 23:59:10,924 - INFO - Analyse des cycles avec fenêtre de 100 tirages...
+2025-07-10 23:59:11,755 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:59:11,755 - INFO - Fenêtre 100: analyse terminée
+2025-07-10 23:59:11,755 - INFO - Application de la pondération Fibonacci adaptative...
+2025-07-10 23:59:11,755 - INFO - Pondération adaptative calculée pour 0 numéros
+2025-07-10 23:59:21,429 - INFO - 10.24.226.1 - - [10/Jul/2025 23:59:21] "POST /api/analyze HTTP/1.1" 200 -
+2025-07-10 23:59:21,429 - INFO - Calcul des fréquences des numéros Keno...
+2025-07-10 23:59:21,581 - WARNING - Aucun numéro valide trouvé
+2025-07-10 23:59:21,581 - INFO - Analyse des cycles sur plusieurs fenêtres...
+2025-07-10 23:59:21,581 - INFO - Analyse des cycles avec fenêtre de 20 tirages...
+2025-07-10 23:59:22,532 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:59:22,532 - INFO - Fenêtre 20: analyse terminée
+2025-07-10 23:59:22,532 - INFO - Analyse des cycles avec fenêtre de 50 tirages...
+2025-07-10 23:59:23,378 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:59:23,378 - INFO - Fenêtre 50: analyse terminée
+2025-07-10 23:59:23,378 - INFO - Analyse des cycles avec fenêtre de 100 tirages...
+2025-07-10 23:59:24,194 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-10 23:59:24,194 - INFO - Fenêtre 100: analyse terminée
+2025-07-10 23:59:24,194 - INFO - Application de la pondération Fibonacci adaptative...
+2025-07-10 23:59:24,194 - INFO - Pondération adaptative calculée pour 0 numéros
+2025-07-10 23:59:46,690 - INFO - 10.24.226.1 - - [10/Jul/2025 23:59:46] "GET /api/results HTTP/1.1" 200 -
+2025-07-10 23:59:53,155 - INFO - 10.24.226.1 - - [10/Jul/2025 23:59:53] "GET /api/status HTTP/1.1" 200 -
+2025-07-11 00:00:00,222 - INFO - 10.24.226.1 - - [11/Jul/2025 00:00:00] "POST /api/update_data HTTP/1.1" 200 -
+2025-07-11 00:00:11,941 - INFO - Calcul des fréquences des numéros Keno...
+2025-07-11 00:00:12,331 - WARNING - Aucun numéro valide trouvé
+2025-07-11 00:00:12,331 - INFO - Calcul des écarts (gaps)...
+2025-07-11 00:00:12,662 - INFO - Calcul des écarts terminé
+2025-07-11 00:00:12,663 - INFO - Analyse des patterns...
+2025-07-11 00:00:12,995 - INFO - Analyse des patterns terminée
+2025-07-11 00:00:13,007 - INFO - 10.24.226.1 - - [11/Jul/2025 00:00:13] "POST /api/frequency_analysis HTTP/1.1" 200 -
+2025-07-11 00:00:18,864 - INFO - Analyse des cycles sur plusieurs fenêtres...
+2025-07-11 00:00:18,864 - INFO - Analyse des cycles avec fenêtre de 20 tirages...
+2025-07-11 00:00:19,703 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-11 00:00:19,703 - INFO - Fenêtre 20: analyse terminée
+2025-07-11 00:00:19,703 - INFO - Analyse des cycles avec fenêtre de 50 tirages...
+2025-07-11 00:00:20,543 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-11 00:00:20,543 - INFO - Fenêtre 50: analyse terminée
+2025-07-11 00:00:20,543 - INFO - Analyse des cycles avec fenêtre de 100 tirages...
+2025-07-11 00:00:21,360 - INFO - Analyse des cycles terminée: 0 sur-représentés, 70 sous-représentés
+2025-07-11 00:00:21,360 - INFO - Fenêtre 100: analyse terminée
+2025-07-11 00:00:21,364 - INFO - 10.24.226.1 - - [11/Jul/2025 00:00:21] "POST /api/cycle_analysis HTTP/1.1" 200 -
+2025-07-11 00:01:36,481 - INFO - 10.24.226.1 - - [11/Jul/2025 00:01:36] "[33mGET /api/last-draw HTTP/1.1[0m" 404 -
+2025-07-11 00:02:26,277 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-11 00:02:26,277 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-11 00:02:26,278 - INFO -  * Restarting with stat
+2025-07-11 00:02:27,835 - WARNING -  * Debugger is active!
+2025-07-11 00:02:27,836 - INFO -  * Debugger PIN: 931-622-594
+2025-07-11 00:03:00,523 - INFO - 10.24.226.1 - - [11/Jul/2025 00:03:00] "[36mGET / HTTP/1.1[0m" 304 -
+2025-07-11 00:03:00,559 - INFO - 10.24.226.1 - - [11/Jul/2025 00:03:00] "[33mGET /api/stats HTTP/1.1[0m" 404 -
+2025-07-11 00:03:00,561 - INFO - 10.24.226.1 - - [11/Jul/2025 00:03:00] "[33mGET /api/last-draw HTTP/1.1[0m" 404 -
+2025-07-11 00:03:00,562 - INFO - 10.24.226.1 - - [11/Jul/2025 00:03:00] "[33mGET /api/predictions HTTP/1.1[0m" 404 -
+2025-07-11 00:03:00,564 - INFO - 10.24.226.1 - - [11/Jul/2025 00:03:00] "[33mGET /health HTTP/1.1[0m" 404 -
+2025-07-11 00:03:08,797 - INFO - 10.24.226.1 - - [11/Jul/2025 00:03:08] "[33mGET /api/last-draw HTTP/1.1[0m" 404 -
+2025-07-11 00:03:23,552 - INFO - 10.24.226.1 - - [11/Jul/2025 00:03:23] "[33mGET /api/last-draw HTTP/1.1[0m" 404 -
+2025-07-11 00:04:43,175 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-11 00:04:43,175 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-11 00:04:43,176 - INFO -  * Restarting with stat
+2025-07-11 00:04:44,835 - WARNING -  * Debugger is active!
+2025-07-11 00:04:44,836 - INFO -  * Debugger PIN: 141-003-972
+2025-07-11 00:05:17,393 - INFO - 10.24.226.1 - - [11/Jul/2025 00:05:17] "[33mGET /api/last-draw HTTP/1.1[0m" 404 -
+2025-07-11 00:05:39,032 - INFO -  * Detected change in '/home/ubuntu/upload/Kenoweb-main/Kenoweb-main/src/keno_web_app.py', reloading
+2025-07-11 00:05:39,375 - INFO -  * Restarting with stat
+2025-07-11 00:05:40,942 - WARNING -  * Debugger is active!
+2025-07-11 00:05:40,942 - INFO -  * Debugger PIN: 141-003-972
+2025-07-11 00:06:00,885 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://169.254.0.21:5000
+2025-07-11 00:06:00,885 - INFO - [33mPress CTRL+C to quit[0m
+2025-07-11 00:06:00,886 - INFO -  * Restarting with stat
+2025-07-11 00:06:02,474 - WARNING -  * Debugger is active!
+2025-07-11 00:06:02,474 - INFO -  * Debugger PIN: 735-563-945
+2025-07-11 00:06:36,512 - INFO - 10.24.226.1 - - [11/Jul/2025 00:06:36] "[33mGET /api/last-draw HTTP/1.1[0m" 404 -

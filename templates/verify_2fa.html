@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vérification 2FA - Keno Analyzer Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .logo {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        p {
+            color: #666;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .code-inputs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        
+        .code-input {
+            width: 50px;
+            height: 60px;
+            text-align: center;
+            font-size: 1.5rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            transition: border-color 0.3s;
+        }
+        
+        .code-input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            max-width: 200px;
+            margin: 0 auto;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #5a6fd5;
+        }
+        
+        .resend-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #666;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        
+        .resend-link:hover {
+            color: #667eea;
+            text-decoration: underline;
+        }
+        
+        .back-to-login {
+            display: block;
+            margin-top: 30px;
+            color: #666;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        
+        .back-to-login:hover {
+            color: #667eea;
+            text-decoration: underline;
+        }
+        
+        .alert {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🔒</div>
+        <h1>Vérification en 2 étapes</h1>
+        <p>Nous avons envoyé un code de vérification à votre adresse email. Veuillez le saisir ci-dessous.</p>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST" action="{{ url_for('verify_2fa') }}" id="verificationForm">
+            <div class="form-group">
+                <div class="code-inputs">
+                    <input type="text" class="code-input" name="code1" maxlength="1" pattern="[0-9]" required>
+                    <input type="text" class="code-input" name="code2" maxlength="1" pattern="[0-9]" required>
+                    <input type="text" class="code-input" name="code3" maxlength="1" pattern="[0-9]" required>
+                    <input type="text" class="code-input" name="code4" maxlength="1" pattern="[0-9]" required>
+                    <input type="text" class="code-input" name="code5" maxlength="1" pattern="[0-9]" required>
+                    <input type="text" class="code-input" name="code6" maxlength="1" pattern="[0-9]" required>
+                    <input type="hidden" name="token" id="tokenInput">
+                </div>
+            </div>
+            
+            <button type="submit" class="btn">Vérifier</button>
+        </form>
+        
+        <a href="#" class="resend-link" id="resendLink">Renvoyer le code</a>
+        <a href="{{ url_for('login') }}" class="back-to-login">← Retour à la connexion</a>
+    </div>
+
+    <script>
+        // Gestion de la saisie du code
+        const inputs = document.querySelectorAll('.code-input');
+        const form = document.getElementById('verificationForm');
+        const tokenInput = document.getElementById('tokenInput');
+        
+        // Auto-focus sur le premier champ
+        inputs[0].focus();
+        
+        // Gestion de la navigation entre les champs
+        inputs.forEach((input, index) => {
+            // Passer au champ suivant après saisie
+            input.addEventListener('input', (e) => {
+                if (e.target.value.length === 1) {
+                    if (index < inputs.length - 1) {
+                        inputs[index + 1].focus();
+                    } else {
+                        // Dernier champ rempli, on soumet le formulaire
+                        form.submit();
+                    }
+                }
+            });
+            
+            // Gestion de la touche retour arrière
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            });
+        });
+        
+        // Gestion du clic sur "Renvoyer le code"
+        document.getElementById('resendLink').addEventListener('click', async (e) => {
+            e.preventDefault();
+            
+            try {
+                const response = await fetch('/resend-verification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: '{{ email }}' // L'email sera injecté par le serveur
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Un nouveau code a été envoyé à votre adresse email.');
+                } else {
+                    alert('Une erreur est survenue. Veuillez réessayer.');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Une erreur est survenue. Veuillez réessayer plus tard.');
+            }
+        });
+        
+        // Rassembler les codes dans un seul champ caché avant soumission
+        form.addEventListener('submit', (e) => {
+            let code = '';
+            inputs.forEach(input => {
+                code += input.value;
+            });
+            tokenInput.value = code;
+        });
+    </script>
+</body>
+</html>

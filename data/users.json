@@ -1,0 +1,10 @@
+{
+  "aniss83123": {
+    "password_hash": "39413be57c8a240f70ff7fb97f39d4c4c1b00a4daf0462d4abf93d3a9182b228$4bd87929373737b1d3383a5f7eaed5454c9491a23114b85702bfab85bdc4dd18",
+    "email": "admin@kenoanalyzer.com",
+    "role": "admin",
+    "created_at": "2025-07-27T19:38:56.676949",
+    "is_active": true,
+    "last_login": null
+  }
+}
