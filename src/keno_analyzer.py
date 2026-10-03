@@ -54,30 +54,33 @@ class KenoAnalyzer:
         os.makedirs(self.config['repertoire_sortie'], exist_ok=True)
     
     def charger_donnees(self):
-    """Charge et prétraite les données des tirages depuis la base PostgreSQL (table tirages_keno)"""
-    print("Chargement des données depuis la base PostgreSQL...")
-    import sqlalchemy
-    from sqlalchemy import create_engine
-    from config import DATABASE_CONFIG
-    try:
-        engine = create_engine(DATABASE_CONFIG['postgresql_url'])
-        # On suppose la table 'tirages_keno' avec les colonnes : id, date, date_brute, numero_1 ... numero_20, multiplicateur, joker
-        query = "SELECT * FROM tirages_keno ORDER BY date ASC;"
-        self.df = pd.read_sql(query, engine)
-        print(f"Données chargées: {len(self.df)} tirages")
-        # Convertir la date
-        self.df['date_parsed'] = pd.to_datetime(self.df['date'], format='%d/%m/%Y')
-        # Extraire les numéros dans une liste
-        numero_cols = [f'numero_{i}' for i in range(1, 21)]
-        self.df['numeros'] = self.df[numero_cols].apply(lambda row: sorted([int(x) for x in row if x is not None]), axis=1)
-        # Trier par date (plus ancien en premier pour l'analyse chronologique)
-        self.df = self.df.sort_values('date_parsed')
-        self.df = self.df.reset_index(drop=True)
-        print(f"Période couverte: {self.df['date'].iloc[0]} à {self.df['date'].iloc[-1]}")
-        return True
-    except Exception as e:
-        print(f"Erreur lors du chargement SQL: {e}")
-        return False
+        """Charge et prétraite les données des tirages depuis la base PostgreSQL (table tirages_keno)"""
+        print("Chargement des données depuis la base PostgreSQL...")
+        from sqlalchemy import create_engine
+        from config import DATABASE_CONFIG
+        try:
+            engine = create_engine(DATABASE_CONFIG['postgresql_url'])
+            # Table 'tirages_keno' : id, date, date_brute, numero_1 ... numero_N, multiplicateur, joker
+            query = "SELECT * FROM tirages_keno ORDER BY date ASC;"
+            self.df = pd.read_sql(query, engine)
+            print(f"Données chargées: {len(self.df)} tirages")
+            # Convertir la date
+            self.df['date_parsed'] = pd.to_datetime(self.df['date'], format='%d/%m/%Y')
+            # Détection adaptative des colonnes de numéros : gère l'ancien format
+            # (numero_1..numero_20, 70/20) comme le nouveau (numero_1..numero_16, 56/16).
+            numero_cols = [c for c in self.df.columns
+                           if c.startswith('numero_') and c.split('_')[-1].isdigit()]
+            numero_cols.sort(key=lambda c: int(c.split('_')[-1]))
+            self.df['numeros'] = self.df[numero_cols].apply(
+                lambda row: sorted([int(x) for x in row if pd.notna(x)]), axis=1)
+            # Trier par date (plus ancien en premier pour l'analyse chronologique)
+            self.df = self.df.sort_values('date_parsed')
+            self.df = self.df.reset_index(drop=True)
+            print(f"Période couverte: {self.df['date'].iloc[0]} à {self.df['date'].iloc[-1]}")
+            return True
+        except Exception as e:
+            print(f"Erreur lors du chargement SQL: {e}")
+            return False
     
     def calculer_statistiques_globales(self):
         """Calcule les statistiques sur tous les tirages"""
