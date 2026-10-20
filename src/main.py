@@ -352,8 +352,23 @@ else:
                 static_folder=STATIC_DIR,
                 template_folder=TEMPLATES_DIR)
 
-# Configuration de la clé secrète pour la session
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'clé-par-défaut-pour-le-développement')
+# Configuration de la clé secrète pour la session.
+# On accepte SECRET_KEY (nom utilisé par render.yaml) ou FLASK_SECRET_KEY.
+# En production, l'absence de clé est une erreur fatale : aucune clé par défaut
+# ne doit servir en ligne, sinon un cookie de session (donc un accès admin)
+# peut être forgé.
+_secret_key = os.environ.get('SECRET_KEY') or os.environ.get('FLASK_SECRET_KEY')
+if not _secret_key:
+    if IS_RENDER:
+        raise RuntimeError(
+            "SECRET_KEY manquante : définissez la variable d'environnement SECRET_KEY "
+            "en production. Aucune clé par défaut n'est autorisée."
+        )
+    # Développement local uniquement : clé éphémère aléatoire (les sessions sont
+    # invalidées à chaque redémarrage, ce qui est acceptable en local).
+    _secret_key = os.urandom(32).hex()
+    logger.warning("SECRET_KEY absente : clé de développement éphémère générée.")
+app.secret_key = _secret_key
 CORS(app)
 
 # Configuration du débogage en fonction de l'environnement
@@ -567,6 +582,21 @@ def admin_required(f):
             flash('Accès refusé - Droits administrateur requis', 'error')
             return redirect('/analyser')
         
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Décorateur pour les endpoints JSON réservés à l'administration.
+# Contrairement à admin_required (qui redirige vers /login pour les pages HTML),
+# il renvoie une erreur JSON, adaptée aux appels API.
+def api_admin_required(f):
+    """Réserve un endpoint API aux administrateurs (401 si non connecté, 403 sinon)."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'error': 'Authentification requise'}), 401
+        user = auth_system.get_user_by_id(session['user_id'])
+        if not user or not user.get('is_admin'):
+            return jsonify({'success': False, 'error': 'Droits administrateur requis'}), 403
         return f(*args, **kwargs)
     return decorated_function
 
@@ -2428,10 +2458,12 @@ def analyze():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/system/update-and-retrain', methods=['POST'])
+@api_admin_required
 def trigger_update_and_retrain():
     return admin_retrain()
 
 @app.route('/api/admin/retrain', methods=['POST'])
+@api_admin_required
 def admin_retrain():
     """
     API pour déclencher manuellement la mise à jour et le réentraînement
@@ -2749,6 +2781,7 @@ def get_prediction_performance():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/prediction/evaluate', methods=['POST'])
+@api_admin_required
 def evaluate_prediction_accuracy():
     """Évalue les prédictions et ajuste les poids"""
     try:
@@ -2763,6 +2796,7 @@ def evaluate_prediction_accuracy():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/prediction/reset-weights', methods=['POST'])
+@api_admin_required
 def reset_prediction_weights():
     """Réinitialise les poids des méthodes de prédiction"""
     try:
@@ -2809,6 +2843,7 @@ def clear_chatbot_history():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/chatbot/configure', methods=['POST'])
+@api_admin_required
 def configure_chatbot():
     """Configure le chatbot avec une nouvelle clé API"""
     try:
@@ -2865,4 +2900,9 @@ def api_get_system_predictions():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+# Le serveur de développement ne doit jamais démarrer à l'import (sous gunicorn,
+# cela exposerait le debugger Werkzeug — exécution de code à distance). En
+# production, c'est gunicorn qui sert l'objet `app`.
+if __name__ == '__main__':
+    debug_enabled = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes')
+    app.run(debug=debug_enabled, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

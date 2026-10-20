@@ -328,9 +328,14 @@ class KenoBacktester:
                 logger.info(f"Test de la stratégie: {strategy_name}")
                 
                 strategy_function = strategy_config['function']
-                strategy_params = strategy_config.get('params', {})
-                strategy_params.update(common_params)
-                
+                # Copie défensive : ne pas muter le dict d'entrée. Les paramètres de
+                # contrôle du backtest (common_params) ne sont PAS mélangés aux
+                # paramètres propres de la stratégie — ils sont transmis séparément via
+                # **common_params ci-dessous. Les injecter ici provoquait une TypeError
+                # dans strategy_function (avalée par le try/except), d'où des métriques
+                # de comparaison toujours vides.
+                strategy_params = dict(strategy_config.get('params', {}))
+
                 result = self.backtest_strategy(
                     df=df,
                     strategy_function=strategy_function,

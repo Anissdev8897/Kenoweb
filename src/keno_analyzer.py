@@ -8,16 +8,15 @@ Objectif: Générer des combinaisons de 4-5 numéros pour gains ~50€
 
 import pandas as pd
 import numpy as np
-from collections import Counter, defaultdict
+from collections import Counter
 import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 import os
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score
 import joblib
 import warnings
 warnings.filterwarnings('ignore')
@@ -54,30 +53,33 @@ class KenoAnalyzer:
         os.makedirs(self.config['repertoire_sortie'], exist_ok=True)
     
     def charger_donnees(self):
-    """Charge et prétraite les données des tirages depuis la base PostgreSQL (table tirages_keno)"""
-    print("Chargement des données depuis la base PostgreSQL...")
-    import sqlalchemy
-    from sqlalchemy import create_engine
-    from config import DATABASE_CONFIG
-    try:
-        engine = create_engine(DATABASE_CONFIG['postgresql_url'])
-        # On suppose la table 'tirages_keno' avec les colonnes : id, date, date_brute, numero_1 ... numero_20, multiplicateur, joker
-        query = "SELECT * FROM tirages_keno ORDER BY date ASC;"
-        self.df = pd.read_sql(query, engine)
-        print(f"Données chargées: {len(self.df)} tirages")
-        # Convertir la date
-        self.df['date_parsed'] = pd.to_datetime(self.df['date'], format='%d/%m/%Y')
-        # Extraire les numéros dans une liste
-        numero_cols = [f'numero_{i}' for i in range(1, 21)]
-        self.df['numeros'] = self.df[numero_cols].apply(lambda row: sorted([int(x) for x in row if x is not None]), axis=1)
-        # Trier par date (plus ancien en premier pour l'analyse chronologique)
-        self.df = self.df.sort_values('date_parsed')
-        self.df = self.df.reset_index(drop=True)
-        print(f"Période couverte: {self.df['date'].iloc[0]} à {self.df['date'].iloc[-1]}")
-        return True
-    except Exception as e:
-        print(f"Erreur lors du chargement SQL: {e}")
-        return False
+        """Charge et prétraite les données des tirages depuis la base PostgreSQL (table tirages_keno)"""
+        print("Chargement des données depuis la base PostgreSQL...")
+        from sqlalchemy import create_engine
+        from config import DATABASE_CONFIG
+        try:
+            engine = create_engine(DATABASE_CONFIG['postgresql_url'])
+            # Table 'tirages_keno' : id, date, date_brute, numero_1 ... numero_N, multiplicateur, joker
+            query = "SELECT * FROM tirages_keno ORDER BY date ASC;"
+            self.df = pd.read_sql(query, engine)
+            print(f"Données chargées: {len(self.df)} tirages")
+            # Convertir la date
+            self.df['date_parsed'] = pd.to_datetime(self.df['date'], format='%d/%m/%Y')
+            # Détection adaptative des colonnes de numéros : gère l'ancien format
+            # (numero_1..numero_20, 70/20) comme le nouveau (numero_1..numero_16, 56/16).
+            numero_cols = [c for c in self.df.columns
+                           if c.startswith('numero_') and c.split('_')[-1].isdigit()]
+            numero_cols.sort(key=lambda c: int(c.split('_')[-1]))
+            self.df['numeros'] = self.df[numero_cols].apply(
+                lambda row: sorted([int(x) for x in row if pd.notna(x)]), axis=1)
+            # Trier par date (plus ancien en premier pour l'analyse chronologique)
+            self.df = self.df.sort_values('date_parsed')
+            self.df = self.df.reset_index(drop=True)
+            print(f"Période couverte: {self.df['date'].iloc[0]} à {self.df['date'].iloc[-1]}")
+            return True
+        except Exception as e:
+            print(f"Erreur lors du chargement SQL: {e}")
+            return False
     
     def calculer_statistiques_globales(self):
         """Calcule les statistiques sur tous les tirages"""
@@ -91,20 +93,22 @@ class KenoAnalyzer:
         self.stats_globales['frequences'] = Counter(tous_numeros)
         self.stats_globales['total_tirages'] = len(self.df)
         
-        # Calculer les écarts actuels (nombre de tirages depuis dernière apparition)
+        # Calculer les écarts actuels (nombre de tirages depuis dernière apparition).
+        # Une seule passe sur l'historique au lieu d'un re-scan complet par numéro :
+        # résultat strictement identique (même formule len-1-index, même fallback
+        # len(df) si le numéro n'est jamais apparu), complexité O(total numéros tirés)
+        # au lieu de O(70 × tirages).
         self.ecarts_globaux = {}
+        n = len(self.df)
+        derniere_apparition = {}
+        for i, numeros in enumerate(self.df['numeros']):
+            for numero in numeros:
+                derniere_apparition[numero] = i
         for numero in range(1, 71):
-            # Trouver le dernier tirage où ce numéro est apparu
-            derniere_apparition = -1
-            for i in range(len(self.df) - 1, -1, -1):
-                if numero in self.df.iloc[i]['numeros']:
-                    derniere_apparition = i
-                    break
-            
-            if derniere_apparition >= 0:
-                self.ecarts_globaux[numero] = len(self.df) - 1 - derniere_apparition
+            if numero in derniere_apparition:
+                self.ecarts_globaux[numero] = n - 1 - derniere_apparition[numero]
             else:
-                self.ecarts_globaux[numero] = len(self.df)
+                self.ecarts_globaux[numero] = n
         
         print(f"Statistiques calculées sur {self.stats_globales['total_tirages']} tirages")
     
@@ -147,9 +151,10 @@ class KenoAnalyzer:
             # Somme des numéros
             patterns['sommes'].append(sum(numeros))
             
-            # Parité (nombre de pairs/impairs)
+            # Parité (nombre de pairs/impairs) : l'étiquette dérive de la taille réelle
+            # du tirage, pas d'un 20 codé en dur (correct pour 20/70 comme pour 16/56).
             pairs = sum(1 for n in numeros if n % 2 == 0)
-            patterns['parite'].append(f"{pairs}P-{20-pairs}I")
+            patterns['parite'].append(f"{pairs}P-{len(numeros)-pairs}I")
             
             # Séquences consécutives
             sequences = 0

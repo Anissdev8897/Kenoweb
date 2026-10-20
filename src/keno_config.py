@@ -21,8 +21,11 @@ class KenoConfig:
     Permet de gérer facilement la transition et la compatibilité
     """
     
-    # Date de transition au nouveau format
-    TRANSITION_DATE = datetime(2025, 1, 1).date()
+    # Date de transition au nouveau format.
+    # Le changement officiel FDJ (grille 56/16, un seul tirage par jour à 20h) est
+    # entré en vigueur le 3 novembre 2025. Les tirages antérieurs à cette date
+    # relèvent de l'ancien format 70/20 (deux tirages par jour).
+    TRANSITION_DATE = datetime(2025, 11, 3).date()
     
     # Configuration ancien Keno (archive)
     OLD_CONFIG = {
@@ -30,15 +33,22 @@ class KenoConfig:
         'max_number': 70,
         'numbers_per_draw': 20,
         'draws_per_day': 2,  # midi et soir
+        'min_pick': 2,
+        'max_pick': 10,
         'version': KenoVersion.OLD
     }
     
-    # Configuration nouveau Keno 2025 (production)
+    # Configuration nouveau Keno 2025 (production) — en vigueur depuis le 03/11/2025
     NEW_CONFIG = {
         'min_number': 1,
         'max_number': 56,
         'numbers_per_draw': 16,
-        'draws_per_day': 1,  # un seul tirage par jour
+        'draws_per_day': 1,          # un seul tirage par jour
+        'draw_time': '20:00',        # tirage à 20h
+        'min_pick': 4,               # minimum de numéros cochables par le joueur
+        'max_pick': 10,              # maximum de numéros cochables
+        'stakes': [1, 2, 3, 5, 10],  # mises possibles (€)
+        'multiplier_values': [2, 3, 5],  # coefficient Multiplicateur tiré au sort
         'version': KenoVersion.NEW_2025,
         'embedding_dim': 512,  # Dimension recommandée pour l'embedding
         'frequency_windows': [20, 50, 100],  # Fenêtres de fréquences glissantes

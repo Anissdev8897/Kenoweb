@@ -5,3 +5,21 @@ dist/
 build/
 .DS_Store
 Thumbs.db
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# Données sensibles et artefacts — ne jamais commiter (secrets, comptes, modèles)
+*.db
+*.sqlite
+*.sqlite3
+*.joblib
+*.pickle
+*_log.txt
+data/*.json
+# Clés / certificats
+*.pem
+*.key
+id_rsa*

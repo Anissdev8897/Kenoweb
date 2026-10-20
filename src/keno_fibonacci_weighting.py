@@ -10,6 +10,7 @@ import numpy as np
 import os
 import time
 from collections import Counter
+from datetime import datetime
 from typing import Dict, List, Union, Any, Optional, Tuple
 
 # Configuration du logging
@@ -500,6 +501,5 @@ def main():
     print("Test terminé avec succès!")
 
 if __name__ == "__main__":
-    from datetime import datetime
     main()
 
