@@ -8,16 +8,15 @@ Objectif: Générer des combinaisons de 4-5 numéros pour gains ~50€
 
 import pandas as pd
 import numpy as np
-from collections import Counter, defaultdict
+from collections import Counter
 import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 import os
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score
 import joblib
 import warnings
 warnings.filterwarnings('ignore')
@@ -94,20 +93,22 @@ class KenoAnalyzer:
         self.stats_globales['frequences'] = Counter(tous_numeros)
         self.stats_globales['total_tirages'] = len(self.df)
         
-        # Calculer les écarts actuels (nombre de tirages depuis dernière apparition)
+        # Calculer les écarts actuels (nombre de tirages depuis dernière apparition).
+        # Une seule passe sur l'historique au lieu d'un re-scan complet par numéro :
+        # résultat strictement identique (même formule len-1-index, même fallback
+        # len(df) si le numéro n'est jamais apparu), complexité O(total numéros tirés)
+        # au lieu de O(70 × tirages).
         self.ecarts_globaux = {}
+        n = len(self.df)
+        derniere_apparition = {}
+        for i, numeros in enumerate(self.df['numeros']):
+            for numero in numeros:
+                derniere_apparition[numero] = i
         for numero in range(1, 71):
-            # Trouver le dernier tirage où ce numéro est apparu
-            derniere_apparition = -1
-            for i in range(len(self.df) - 1, -1, -1):
-                if numero in self.df.iloc[i]['numeros']:
-                    derniere_apparition = i
-                    break
-            
-            if derniere_apparition >= 0:
-                self.ecarts_globaux[numero] = len(self.df) - 1 - derniere_apparition
+            if numero in derniere_apparition:
+                self.ecarts_globaux[numero] = n - 1 - derniere_apparition[numero]
             else:
-                self.ecarts_globaux[numero] = len(self.df)
+                self.ecarts_globaux[numero] = n
         
         print(f"Statistiques calculées sur {self.stats_globales['total_tirages']} tirages")
     
@@ -150,9 +151,10 @@ class KenoAnalyzer:
             # Somme des numéros
             patterns['sommes'].append(sum(numeros))
             
-            # Parité (nombre de pairs/impairs)
+            # Parité (nombre de pairs/impairs) : l'étiquette dérive de la taille réelle
+            # du tirage, pas d'un 20 codé en dur (correct pour 20/70 comme pour 16/56).
             pairs = sum(1 for n in numeros if n % 2 == 0)
-            patterns['parite'].append(f"{pairs}P-{20-pairs}I")
+            patterns['parite'].append(f"{pairs}P-{len(numeros)-pairs}I")
             
             # Séquences consécutives
             sequences = 0

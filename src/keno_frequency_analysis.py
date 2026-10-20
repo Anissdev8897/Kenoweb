@@ -90,18 +90,24 @@ class KenoFrequencyAnalyzer:
             # Calcul des fréquences relatives
             freq_rel = {num: count / total_numbers for num, count in freq_abs.items()}
             
-            # Fréquences théoriques (chaque numéro devrait apparaître 20/70 = 28.57% du temps)
+            # Fréquence théorique de chaque numéro : numbers_per_draw / max_number
+            # (dépend du format via la config, pas d'une valeur codée en dur).
             theoretical_freq = self.numbers_per_draw / self.max_number
-            
+
             # Écarts par rapport à la théorie
             freq_deviations = {}
             for num in range(self.min_number, self.max_number + 1):
                 actual_freq = freq_rel.get(num, 0)
                 freq_deviations[num] = actual_freq - theoretical_freq
-            
-            # Classification chaud/froid
-            hot_numbers = sorted(freq_rel.items(), key=lambda x: x[1], reverse=True)[:15]
-            cold_numbers = sorted(freq_rel.items(), key=lambda x: x[1])[:15]
+
+            # Classification chaud/froid sur la grille COMPLÈTE : un numéro jamais
+            # sorti (fréquence 0) est le plus froid possible et doit pouvoir figurer
+            # dans la liste des froids. On complète donc par 0 les numéros absents
+            # de freq_rel (qui ne contient que les numéros effectivement tirés).
+            freq_full = {num: freq_rel.get(num, 0)
+                         for num in range(self.min_number, self.max_number + 1)}
+            hot_numbers = sorted(freq_full.items(), key=lambda x: x[1], reverse=True)[:15]
+            cold_numbers = sorted(freq_full.items(), key=lambda x: x[1])[:15]
             
             results = {
                 "frequency_absolute": freq_abs,
